@@ -41,7 +41,80 @@ download.file(zip_url, temp_file, mode = "wb")
 # List files inside the ZIP
 csv_file_name <- unzip(temp_file, list = TRUE)$Name[1]  # choose appropriate file if more than one
 
-usedcarsdf <- read.csv(unz(temp_file, csv_file_name))
-str(usedcarsdf)
+data <- read.csv(unz(temp_file, csv_file_name))
+```
+
+```{r}
+data$price <- gsub("[$,]", "", data$price)
+data$price <- as.integer(data$price)
+```
+
+
+```{r}
+# Preview the data
+head(data)
+```
+
+
+```{r}
+# Describe the data
+summary(data)
+```
+
+```{r}
+#structure
+str(data)
+```
+
+```{r}
+# Count NA values
+na_counts <- colSums(is.na(data))
+na_counts
+```
+
+```{r}
+# Count NA values
+sapply(data, function(x) sum(!is.finite(x)))  # counts Inf/NaN
+```
+
+```{r}
+# Remove rows with any NA values
+clean_data <- na.omit(data)
+cat("\nRemoved rows with NA values. New dimensions:\n")
+print(dim(clean_data))
+```
+
+```{r}
+# Detecting Outliers using IQR for numeric columns
+numeric_cols <- sapply(clean_data, is.numeric)
+
+outliers <- list()
+for (col in names(clean_data)[numeric_cols]) {
+  Q1 <- quantile(clean_data[[col]], 0.25, na.rm = TRUE)
+  Q3 <- quantile(clean_data[[col]], 0.75, na.rm = TRUE)
+  IQR_val <- Q3 - Q1
+  lower <- Q1 - 1.5 * IQR_val
+  upper <- Q3 + 1.5 * IQR_val
+  outlier_rows <- which(clean_data[[col]] < lower | clean_data[[col]] > upper)
+  outliers[[col]] <- outlier_rows
+  cat(sprintf("\nOutliers in %s: %d found\n", col, length(outlier_rows)))
+}
+```
+
+```{r}
+# Optional: Remove rows with outliers (union of all outlier indices)
+all_outlier_indices <- unique(unlist(outliers))
+data_no_outliers <- clean_data[-all_outlier_indices, ]
+```
+
+```{r}
+# Final Cleaned Dataset (No NAs, No Outliers) 
+dim(data_no_outliers)
+```
+
+
+```{r}
+full <- lm(price~factor(brand)+factor(model)+factor(model_year)+milage+factor(fuel_type)+factor(engine)+factor(transmission)+factor(ext_col)+factor(int_col)+factor(accident)+factor(clean_title), data = data_no_outliers)
+summary(full)
 ```
 
