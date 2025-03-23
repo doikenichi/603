@@ -3,7 +3,7 @@ title: "Price predictors of used cars"
 author: "Bilal Naseem, Franco Doi, Gautham Chandra Shekariah, Joao Bertti Targino, Romith Bondada"
 date: "2025-03-30"
 output:
-  html
+  word_document
 editor_options: 
   markdown: 
     wrap: sentence
@@ -24,6 +24,19 @@ library(tidyverse)
 library(webshot2)
 library(latex2exp)
 library(olsrr)
+
+
+library(rmarkdown)
+library(officer)
+
+library(corrplot)
+library(ggplot2)
+library(gridExtra)
+library(scales)
+library(lubridate)
+library(knitr)
+library(reshape2)
+
 ```
 
 
@@ -31,6 +44,9 @@ library(olsrr)
 
 
 ```{r}
+# 1. Data Loading and Initial Exploration
+# ---------------------------------------
+
 zip_url <- "https://www.kaggle.com/api/v1/datasets/download/taeefnajib/used-car-price-prediction-dataset"
 # Create a temporary file to download the ZIP
 temp_file <- tempfile(fileext = ".zip")
@@ -41,80 +57,101 @@ download.file(zip_url, temp_file, mode = "wb")
 # List files inside the ZIP
 csv_file_name <- unzip(temp_file, list = TRUE)$Name[1]  # choose appropriate file if more than one
 
-data <- read.csv(unz(temp_file, csv_file_name))
+used_cars_data <- read.csv(unz(temp_file, csv_file_name))
 ```
 
 ```{r}
-data$price <- gsub("[$,]", "", data$price)
-data$price <- as.integer(data$price)
+# remove string and convert string to number
+used_cars_data$price <- gsub("[$,]", "", used_cars_data$price)
+used_cars_data$price <- as.integer(used_cars_data$price)
+
+# remove string and convert string to number
+used_cars_data$milage <- gsub("[, mi]", "", used_cars_data$milage)
+used_cars_data$milage <- as.integer(used_cars_data$milage)
+
+#renaming column
+names(used_cars_data)[names(used_cars_data) == "milage"] <- "mileage"
 ```
 
 
 ```{r}
-# Preview the data
-head(data)
+# Display basic information about the dataset
+str(used_cars_data)
+```
+
+```{r}
+summary(used_cars_data)
 ```
 
 
 ```{r}
-# Describe the data
-summary(data)
+# Check for missing values
+missing_values <- colSums(is.na(used_cars_data))
+cat("\nMissing values per column:\n")
+print(missing_values[missing_values > 0])
+```
+```{r}
+# Check for duplicates
+cat("\nNumber of duplicate rows:", sum(duplicated(used_cars_data)), "\n")
+
 ```
 
 ```{r}
-#structure
-str(data)
+categorical_vars <- c("brand", "model", "fuel_type", "engine", "transmission", "ext_col", "int_col", "accident", "clean_title")
+used_cars_data[categorical_vars] <- lapply(used_cars_data[categorical_vars], as.factor)
+```
+
+
+```{r}
+# 3.3.2. Univariate Analysis
+# ---------------------
+
+# 3.3.2.1 Price Distribution (Target Variable)
+ggplot(used_cars_data, aes(x = price)) +
+  geom_histogram(bins = 50, fill = "steelblue", alpha = 0.7) +
+  scale_x_continuous(labels = scales::comma) +
+  labs(title = "Distribution of Car Prices",
+       x = "Price ($)",
+       y = "Count") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
 ```
 
 ```{r}
-# Count NA values
-na_counts <- colSums(is.na(data))
-na_counts
+# Log-transformed price for better visualization
+ggplot(used_cars_data, aes(x = log(price))) +
+  geom_histogram(bins = 50, fill = "steelblue", alpha = 0.7) +
+  labs(title = "Distribution of Log-Transformed Car Prices",
+       x = "Log(Price)",
+       y = "Count") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
 ```
 
-```{r}
-# Count NA values
-sapply(data, function(x) sum(!is.finite(x)))  # counts Inf/NaN
-```
 
 ```{r}
-# Remove rows with any NA values
-clean_data <- na.omit(data)
-cat("\nRemoved rows with NA values. New dimensions:\n")
-print(dim(clean_data))
-```
+# 3.3.2.2 Numerical Variables Analysis
+numerical_vars <- c("model_year", "mileage")
 
-```{r}
-# Detecting Outliers using IQR for numeric columns
-numeric_cols <- sapply(clean_data, is.numeric)
-
-outliers <- list()
-for (col in names(clean_data)[numeric_cols]) {
-  Q1 <- quantile(clean_data[[col]], 0.25, na.rm = TRUE)
-  Q3 <- quantile(clean_data[[col]], 0.75, na.rm = TRUE)
-  IQR_val <- Q3 - Q1
-  lower <- Q1 - 1.5 * IQR_val
-  upper <- Q3 + 1.5 * IQR_val
-  outlier_rows <- which(clean_data[[col]] < lower | clean_data[[col]] > upper)
-  outliers[[col]] <- outlier_rows
-  cat(sprintf("\nOutliers in %s: %d found\n", col, length(outlier_rows)))
+# Function to create histograms for numerical variables using tidy evaluation
+plot_histogram <- function(data, var_name) {
+  ggplot(data, aes(x = .data[[var_name]])) +
+    geom_histogram(bins = 30, fill = "cornflowerblue", alpha = 0.7) +
+    labs(title = paste("Distribution of", var_name),
+         x = var_name,
+         y = "Count") +
+    theme_minimal() +
+    theme(plot.title = element_text(hjust = 0.5))
 }
-```
 
-```{r}
-# Optional: Remove rows with outliers (union of all outlier indices)
-all_outlier_indices <- unique(unlist(outliers))
-data_no_outliers <- clean_data[-all_outlier_indices, ]
-```
+# Apply the function to each numerical variable
+num_plots <- lapply(numerical_vars, function(var) {
+  plot_histogram(used_cars_data, var)
+})
 
-```{r}
-# Final Cleaned Dataset (No NAs, No Outliers) 
-dim(data_no_outliers)
-```
+# Display plots in a grid
+grid.arrange(grobs = num_plots, ncol = 2)
 
-
-```{r}
-full <- lm(price~factor(brand)+factor(model)+factor(model_year)+milage+factor(fuel_type)+factor(engine)+factor(transmission)+factor(ext_col)+factor(int_col)+factor(accident)+factor(clean_title), data = data_no_outliers)
-summary(full)
 ```
 
