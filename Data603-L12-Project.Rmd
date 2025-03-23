@@ -1,20 +1,30 @@
 ---
 title: "Price predictors of used cars"
-author: "Bilal Naseem, Franco Doi, Gautham Chandra Shekariah, Joao Bertti Targino, Romith Bondada"
+author: "Bilal Naseem, Franco Doi (30270314), Gautham Chandra Shekariah, Joao Bertti Targino, Romith Bondada"
 date: "2025-03-30"
-output:
-  word_document
+output: 
+  bookdown::word_document2:
+    toc: true
+    fig_caption: true
+    number_sections: true
 editor_options: 
   markdown: 
     wrap: sentence
 header-includes:
+  - \usepackage{amsmath}
+  - \usepackage{hyperref}
   - \usepackage{graphicx}
   - \usepackage{float} 
   - \usepackage{listings}
+  - \usepackage{caption}
+  - \usepackage{booktabs}
+  - \setcounter{figure}{0}
   - \lstset{breaklines=true, xleftmargin=20pt, basicstyle=\tiny, frame=single}
+geometry: margin=1in
+fontsize: 11pt
 ---
 
-"Built with R version `r getRversion()`"
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
@@ -24,6 +34,7 @@ library(tidyverse)
 library(webshot2)
 library(latex2exp)
 library(olsrr)
+library(bookdown)
 
 
 library(rmarkdown)
@@ -39,8 +50,247 @@ library(reshape2)
 
 ```
 
+\newpage
+**DATA 603 (W25)**  
+**Final Report**
 
-## Winter 2025 DATA 603: Project
+**Title**: Price Predictors of Used Cars  
+
+**Group Members**:  
+
+*Full names and UCIDS*
+
+- Bilal Naseem  
+- Franco Doi (30270314)  
+- Gautham Chandra Shekariah  
+- Joao Bertti Targ
+
+\newpage
+# INTRODUCTION 
+
+## Motivation
+
+### Context
+*Clearly state the context and applied domain(s) of your project.*
+
+The automotive market for pre-owned or used vehicles is dynamic and often unpredictable. Buyers and sellers rely heavily on experience, intuition, or online listings to estimate fair prices, which can lead to inconsistencies in pricing. With the growing availability of data and machine learning tools, it has become increasingly possible to make more accurate and data-driven pricing predictions for used cars. 
+
+
+### Problem
+*What problem are we going to address and propose a data/visual analytics solution to?*
+
+This project aims to develop a predictive model that estimates the sale price of a pre-owned vehicle based on a variety of numerical and categorical features. The motivation stems from a personal and practical interest: as individuals who may buy or sell used cars, we want to ensure we are not overpaying or underselling. A reliable prediction model could help users make more informed financial decisions in the used car market. 
+
+### Challenges
+*Why is the problem hard? Provide examples*
+
+Predicting the price of a used vehicle involves several challenges. First, the data may contain missing values, inconsistent formats, or outliers that need to be cleaned and handled appropriately. Second, the relationship between features (such as brand, age, mileage, and condition) and price are often nonlinear and complex. Third, combining both categorical and numerical variables in a model requires careful preprocessing and feature engineering. Finally, ensuring the model generalizes well to unseen data demands rigorous validation and tuning.
+
+## Objectives
+
+### Overview
+*What is the overall intent of the project?*
+
+The objective of this project is to build a predictive model that can accurately estimate the sale price of a pre-owned/used car. This model will leverage a combination of numerical and categorical variables to understand the factors that influence pricing in the used car market. By applying data analysis and machine learning techniques, we aim to create a practical tool for evaluating whether a vehicle is fairly priced—either for personal use or broader market insight.
+
+### Goals & Research Questions
+*Clearly state each of your data/visual analytics goals and research questions.*
+
+#### Goals
+
+1. To analyze the key variables that affect the sale price of used cars.
+2. To preprocess and explore the dataset for patterns, correlations, and insights.
+3. To build, evaluate, and compare predictive models that estimate car prices based on input features.
+4. To create a tool that can help users make more informed decisions when buying or selling a used vehicle.
+
+#### Research Questions
+
+1. What are the most influential features in determining a used car’s sale price?
+2. How accurately can we predict the price using machine learning algorithms?
+3. Are there noticeable trends or patterns in pricing based on make, model, age, or mileage?
+4. Can the model help identify potentially overpriced or underpriced vehicles?
+
+
+
+
+
+
+
+
+
+
+
+
+
+\newpage
+# METHODOLOGY  
+
+## Data
+*Describe the data set(s) related to your project, source(s), how data was collected, number of attributes and a brief description of each attribute.*
+
+### Data Source
+The dataset used in this project is the "Used Car Price Prediction Dataset" obtained from Kaggle (https://www.kaggle.com/datasets/taeefnajib/used-car-price-prediction-dataset). This dataset contains information about used cars listed for sale, including various attributes that potentially influence the selling price.
+
+### Data Collection
+
+The dataset is available online and is licensed under Attribution 4.0 International, which allows us to use for academic purposes. The collection of the data for this dataset appears to be compiled from online car listing platforms or dealership databases. While the specific collection methodology is not explicitly stated by the dataset provider, it represents real-world used car listings with their associated features and prices. The data likely represents a snapshot of the used car market during a specific period
+
+### Dataset Size
+The dataset contains 4009 rows and 12 attributes. The structure includes:
+
+1.	Multiple rows, each representing an individual used car listing.
+2.	Several columns, each representing a specific attribute of the car.
+
+### Attributes Description
+
+-	**Price**: The listed selling price of the used car (in currency units). This is the target variable we aim to predict.
+-	**Brand**: The manufacturer or make of the car (e.g., Toyota, Honda, Ford, BMW, Mercedes-Benz). This is a categorical variable representing different car manufacturers.
+-	**Model**: The specific model of the car offered by the manufacturer. This is a categorical variable with numerous unique values depending on the brand.
+-	**Year**: The manufacturing year of the vehicle. This numerical variable indicates the car's age, which typically has a strong correlation with its price.
+-	**Mileage**: The total distance the car has been driven in miles. This numerical variable is a key indicator of vehicle wear and significantly impacts resale value.
+-	**Fuel Type**: The type of fuel the car uses (e.g., Gasoline, Diesel, Electric, Hybrid). This categorical variable can significantly influence pricing due to differences in fuel economy and operational costs.
+-	**Engine Capacity**: The engine’s specifications including size, technology, number of cylinders, generally correlates with the car's power and fuel consumption.
+-	**Transmission Type**: The type of transmission system in the car (e.g., Automatic, Manual, CVT, Semi-automatic). This categorical variable affects both driving experience and maintenance costs.
+
+The dataset provides a comprehensive representation of the used car market with attributes covering the most significant factors that influence car pricing. These variables include both technical specifications (engine capacity, mileage) and market segmentation factors (brand, model), allowing for a thorough analysis of price determinants.
+
+## Approach
+*What approach are you using for data/visual analytics solution? Why do you think it will work well?*
+
+For our used car price prediction project, we are implementing a comprehensive data and visual analytics solution that combines exploratory data analysis (EDA), statistical modeling, and rigorous validation techniques. Our approach consists of several integrated components:
+
+
+### Exploratory Data Analysis with Visualizations
+
+We begin with an extensive EDA that uses a variety of visualizations to understand the dataset's characteristics:
+
+a)	**Distribution analyses** of continuous variables (price, mileage, year) using histograms and density plots 
+b)	**Relationship visualizations** through scatter plots, box plots, and correlation matrices 
+c)	**Category-based comparisons** using bar charts and grouped box plots to assess how categorical variables like brand, model, and fuel type affect prices
+d)	**Multi-dimensional analyses** including faceted plots and color-coded visualizations to reveal complex interactions between variables
+
+
+### Modeling with Multiple Linear Regression
+
+For prediction, we employ a multiple linear regression model with several enhancements:
+
+a)	**Interaction terms** between significant variables to account for conditional effects 
+b)	**Polynomial transformations** of key numerical predictors to capture non-linear relationships 
+c)	**Feature engineering** including derived variables like car age and miles-per-year 
+d)	**Comprehensive model selection** using techniques like best subset selection, adjusted R-squared, AIC, and BIC criteria
+
+
+### Statistical Validation and Diagnostics
+
+We implement a rigorous validation framework:
+
+a)	**Assumption testing** for linearity, independence, homoscedasticity, and normality 
+b)	**Multicollinearity detection** using Variance Inflation Factors (VIF) 
+c)	**Influential observation analysis** using Cook's distance and DFBETAS 
+d)	**Cross-validation** with train/test splits to confirm model generalizability 
+e)	**Performance metrics** including RMSE and R-squared
+
+### Results Visualization and Interpretation
+Our final analytics layer includes:
+
+a)	**Coefficient visualization** to show the impact of each predictor 
+b)	**Actual vs. predicted** plots to illustrate model accuracy 
+c)	**Residual analysis visualizations** to identify potential improvements 
+d)	**Interactive visualizations** that allow for dynamic exploration of model predictions
+
+### Why this works
+Our integrated approach is particularly well-suited for the used car price prediction problem for several reasons:
+
+1)	**Addresses Domain-Specific Challenges**
+
+    The used car market has well-known non-linear aspects (e.g., depreciation curves) and complex interactions (e.g., how premium brands depreciate differently) that our approach specifically targets through polynomial terms and interaction effects.
+  
+2)	**Balances Complexity and Interpretability**
+  
+    While machine learning algorithms like random forests might achieve high accuracy, linear regression with carefully selected enhancements provides comparable performance while maintaining interpretability—a crucial factor when the goal is not just prediction but understanding what drives car prices.
+  
+3)	**Provides Rigorous Statistical Foundation**
+  
+    Our statistical validation ensures that the model meets all necessary assumptions, preventing misleading results and ensuring the reliability of predictions across different market segments.
+  
+4)	**Leverages Visual Analytics for Insight Generation**
+  
+    By integrating visualization throughout the analysis pipeline—from initial exploration to final model evaluation—we facilitate deeper insights about the used car market that purely algorithmic approaches might miss.
+  
+5)	**Enables Practical Application**
+
+    The final model delivers actionable insights for various stakeholders:
+
+    +	Buyers can understand fair market values based on car attributes
+    +	Sellers can set competitive yet profitable prices
+    +	Dealerships can optimize inventory pricing strategies
+    +	Market analysts can identify trends and anomalies in the used car market
+
+By combining robust statistical modeling with comprehensive visual analytics, our approach not only predicts prices with high accuracy but also provides valuable insights into the factors that drive the used car market.
+
+## Workflow
+*What steps (workflow task list) are required? Which of these steps is particularly hard? What to do if the hard steps don't work out*
+
+The workflow for building a robust used car price prediction model is as follows:
+
+1. **Exploratory Data Analysis (EDA)**
+
+    The first step involves understanding the structure, distribution, and relationships within the dataset. This includes identifying missing values, outliers, data types, and potential data quality issues. EDA also helps form initial hypotheses and informs feature engineering strategies.
+    
+2. **Data Cleaning and Preprocessing**
+
+    This includes handling missing values, correcting inconsistent entries, and converting categorical features to a usable format (e.g., one-hot encoding or label encoding). Normalization or scaling of numerical features may also be applied here.
+
+3. **Feature Selection and Collinearity Check**
+
+    Highly correlated features can lead to multicollinearity, which may negatively impact some models. Identifying and removing redundant features helps improve model performance and interpretability.
+
+4. **Modeling**
+
+    Build a linear regression model. Include polynomial terms or interactions if they improve performance. 
+
+5. **Evaluation**
+
+    Use metrics such as MAE, RMSE, and R² on validation data to assess model accuracy. Validate with a train/test split or cross-validation.
+
+6. **Iterative Tuning**
+
+    Based on validation results, revisit earlier steps—adjust feature engineering, try new models, or fine-tune hyperparameters. This iterative loop continues until a satisfactory model is achieved.
+
+## Challenges and Potential issues
+
+Feature selection and transformation decisions are nontrivial.
+
+## Contributions
+
+*Briefly describe the group members’ workload distribution and responsibilities.*
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\newpage
+# MAIN RESULTS OF THE ANALYSIS
+
+## Results
+
+*What do my results indicate? Do you have any unexpected results? Please elaborate.*
+
+### Data cleaning & transformation
+
+The numerical features price and milage were string like “\$10,300” for price and “5,1000 mi” for milage.
+The characters “\$” and “,” were removed for price and “,”, “ “ and “mi” were removed for milage prior to converting them to numerical features.
+Column milage was renamed to mileage for easier understanding.
 
 
 ```{r}
@@ -73,17 +323,26 @@ used_cars_data$milage <- as.integer(used_cars_data$milage)
 names(used_cars_data)[names(used_cars_data) == "milage"] <- "mileage"
 ```
 
+Categorical attributes are converted into type factor to avoid wrong interpratation by R
+```{r}
+categorical_vars <- c("brand", "model", "fuel_type", "engine", "transmission", "ext_col", "int_col", "accident", "clean_title")
+used_cars_data[categorical_vars] <- lapply(used_cars_data[categorical_vars], as.factor)
+```
 
+### EDA
+#### Summary
+After data cleaning the dataset has 4009 rows and 12 attributes, and corresponding data types.
 ```{r}
 # Display basic information about the dataset
 str(used_cars_data)
 ```
 
+Below is the summary of the dataset
 ```{r}
 summary(used_cars_data)
 ```
 
-
+There is no missing values nor duplication.
 ```{r}
 # Check for missing values
 missing_values <- colSums(is.na(used_cars_data))
@@ -96,13 +355,15 @@ cat("\nNumber of duplicate rows:", sum(duplicated(used_cars_data)), "\n")
 
 ```
 
+#### Univariate Analysis
+#### Price distribution
 ```{r}
-categorical_vars <- c("brand", "model", "fuel_type", "engine", "transmission", "ext_col", "int_col", "accident", "clean_title")
-used_cars_data[categorical_vars] <- lapply(used_cars_data[categorical_vars], as.factor)
+fig_number <- 1
 ```
 
 
-```{r}
+```{r fig_numbered, fig.cap=paste("Figure", fig_number, ": Distribution of Car Prices"), fig.lp="Figure "}
+
 # 3.3.2. Univariate Analysis
 # ---------------------
 
@@ -115,10 +376,13 @@ ggplot(used_cars_data, aes(x = price)) +
        y = "Count") +
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5))
-
 ```
 
-```{r}
+The plot above shows that most car prices are less than 1,000,000, and clearly have outliers, which makes the analysis of distribution hard to visualize.
+
+To visualize the distribution with less impact of the outliers, the car prices are transformed by log:
+
+```{r, fig.cap="Distribution of Log-Transformed Car Prices"}
 # Log-transformed price for better visualization
 ggplot(used_cars_data, aes(x = log(price))) +
   geom_histogram(bins = 50, fill = "steelblue", alpha = 0.7) +
@@ -129,6 +393,9 @@ ggplot(used_cars_data, aes(x = log(price))) +
   theme(plot.title = element_text(hjust = 0.5))
 ```
 
+The figure above shows that the distribution is slightly skewed to the right, probably caused by the outliers.
+
+#### Model year and Milage distribution
 
 ```{r}
 # 3.3.2.2 Numerical Variables Analysis
@@ -155,3 +422,9 @@ grid.arrange(grobs = num_plots, ncol = 2)
 
 ```
 
+
+The figure above shows distribution for the model year on the left and the mileage on the right.
+
+The model year is skewed to the left, where most of the cars are newer.
+
+The Mileage is skewed to the right, where most of the cars were driven less.
