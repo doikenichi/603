@@ -73,7 +73,11 @@ library(reshape2)
 ### Context
 *Clearly state the context and applied domain(s) of your project.*
 
-The automotive market for pre-owned or used vehicles is dynamic and often unpredictable. Buyers and sellers rely heavily on experience, intuition, or online listings to estimate fair prices, which can lead to inconsistencies in pricing. With the growing availability of data and machine learning tools, it has become increasingly possible to make more accurate and data-driven pricing predictions for used cars. 
+The automotive market for pre-owned or used vehicles is dynamic and often unpredictable. As noted in the study "Predicting Car Prices: A Comparative Analysis of Machine Learning Techniques" (Abdulhakeem et al., 2023), the accurate prediction of car prices is crucial for various stakeholders in the automotive industry, including manufacturers, dealers, and consumers.
+
+The used car market presents unique challenges for price prediction due to the numerous factors that influence a vehicle's value beyond just its base specifications. These factors include age, mileage, condition, brand reputation, market demand, and regional economic conditions. Traditional methods of car valuation often fail to capture the complex relationships between these variables.
+
+Machine learning approaches offer a promising solution to this problem by analyzing patterns in historical data to generate accurate price predictions. The referenced study compares several machine learning algorithms including Linear Regression, Random Forest, and XGBoost to determine which provides the most accurate predictions for used car prices.
 
 
 ### Problem
@@ -133,15 +137,21 @@ The dataset used in this project is the "Used Car Price Prediction Dataset" obta
 
 ### Data Collection
 
-The dataset is available online and is licensed under Attribution 4.0 International, which allows us to use for academic purposes. The collection of the data for this dataset appears to be compiled from online car listing platforms or dealership databases. While the specific collection methodology is not explicitly stated by the dataset provider, it represents real-world used car listings with their associated features and prices. The data likely represents a snapshot of the used car market during a specific period
+The dataset is available online and is licensed under Attribution 4.0 International, which allows us to use for academic purposes. 
+
+The data was likely collected from online car listings or dealership inventory, though the specific collection methodology isn't explicitly stated in the Kaggle source. Without additional metadata, it's difficult to determine if the sampling was random or if there are geographic or temporal biases in the collection.
 
 ### Dataset Size
-The dataset contains 4009 rows and 12 attributes. The structure includes:
-
-1.	Multiple rows, each representing an individual used car listing.
-2.	Several columns, each representing a specific attribute of the car.
+The dataset consists of 6,019 observations (rows), each representing a specific used car listing. It contains 13 variables (columns) capturing various car attributes that might influence pricing.
 
 ### Attributes Description
+Key features in the dataset include:
+
+- Vehicle characteristics (make, model, year, mileage)
+- Physical attributes (engine capacity, fuel type, transmission type)
+- Market factors (listing price)
+
+Detailed explanation of each attribute is below:
 
 -	**Price**: The listed selling price of the used car (in currency units). This is the target variable we aim to predict.
 -	**Brand**: The manufacturer or make of the car (e.g., Toyota, Honda, Ford, BMW, Mercedes-Benz). This is a categorical variable representing different car manufacturers.
@@ -151,6 +161,9 @@ The dataset contains 4009 rows and 12 attributes. The structure includes:
 -	**Fuel Type**: The type of fuel the car uses (e.g., Gasoline, Diesel, Electric, Hybrid). This categorical variable can significantly influence pricing due to differences in fuel economy and operational costs.
 -	**Engine Capacity**: The engine’s specifications including size, technology, number of cylinders, generally correlates with the car's power and fuel consumption.
 -	**Transmission Type**: The type of transmission system in the car (e.g., Automatic, Manual, CVT, Semi-automatic). This categorical variable affects both driving experience and maintenance costs.
+- **Exterior Color**: Exterior color of the car. The exterior color significantly influences a vehicle's marketability and resale value.
+- **Interior Color**: Interior color of the car. Interior color affects both buyer perception and practical considerations.
+- **Accident**: Accident history of the car. A vehicle's accident history can dramatically impact its value and desirability.
 
 The dataset provides a comprehensive representation of the used car market with attributes covering the most significant factors that influence car pricing. These variables include both technical specifications (engine capacity, mileage) and market segmentation factors (brand, model), allowing for a thorough analysis of price determinants.
 
@@ -256,10 +269,19 @@ The workflow for building a robust used car price prediction model is as follows
 6. **Iterative Tuning**
 
     Based on validation results, revisit earlier steps—adjust feature engineering, try new models, or fine-tune hyperparameters. This iterative loop continues until a satisfactory model is achieved.
+    
+As industry standard value $\alpha$ will be set as $0.05$ throughout the project.
 
 ## Challenges and Potential issues
 
-Feature selection and transformation decisions are nontrivial.
+Given the nature of used car listings, potential sampling biases might include:
+
+* Over-representation of popular car models
+* Limited geographic coverage if data was collected from specific regions
+* Possible exclusion of private sales if only dealership data was used
+
+The dataset appears designed primarily for developing machine learning models to predict used car prices based on vehicle attributes.
+
 
 ## Contributions
 
@@ -356,70 +378,55 @@ cat("\nNumber of duplicate rows:", sum(duplicated(used_cars_data)), "\n")
 ```
 
 #### Univariate Analysis
-#### Price distribution
+##### Price distribution
+
 ```{r}
-fig_number <- 1
-```
-
-
-```{r fig_numbered, fig.cap=paste("Figure", fig_number, ": Distribution of Car Prices"), fig.lp="Figure "}
-
-# 3.3.2. Univariate Analysis
-# ---------------------
-
-# 3.3.2.1 Price Distribution (Target Variable)
+figure_no <- 1
 ggplot(used_cars_data, aes(x = price)) +
   geom_histogram(bins = 50, fill = "steelblue", alpha = 0.7) +
   scale_x_continuous(labels = scales::comma) +
   labs(title = "Distribution of Car Prices",
        x = "Price ($)",
-       y = "Count") +
+       y = "Count",
+       caption = paste("Figure", figure_no,": Histogram showing the distribution of used car prices with 50 bins.")) +
   theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5))
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.caption = element_text(hjust = 0.5, face = "italic"))
 ```
 
 The plot above shows that most car prices are less than 1,000,000, and clearly have outliers, which makes the analysis of distribution hard to visualize.
 
 To visualize the distribution with less impact of the outliers, the car prices are transformed by log:
 
-```{r, fig.cap="Distribution of Log-Transformed Car Prices"}
-# Log-transformed price for better visualization
+```{r}
+figure_no <- figure_no + 1
 ggplot(used_cars_data, aes(x = log(price))) +
   geom_histogram(bins = 50, fill = "steelblue", alpha = 0.7) +
   labs(title = "Distribution of Log-Transformed Car Prices",
        x = "Log(Price)",
-       y = "Count") +
+       y = "Count",
+       caption = paste("Figure", figure_no, ": Log transformation applied to price values to better visualize the distribution pattern.")) +
   theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5))
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.caption = element_text(hjust = 0.5, face = "italic"))
 ```
 
 The figure above shows that the distribution is slightly skewed to the right, probably caused by the outliers.
 
-#### Model year and Milage distribution
+##### Manufacturing year distribution
 
 ```{r}
-# 3.3.2.2 Numerical Variables Analysis
-numerical_vars <- c("model_year", "mileage")
-
-# Function to create histograms for numerical variables using tidy evaluation
-plot_histogram <- function(data, var_name) {
-  ggplot(data, aes(x = .data[[var_name]])) +
-    geom_histogram(bins = 30, fill = "cornflowerblue", alpha = 0.7) +
-    labs(title = paste("Distribution of", var_name),
-         x = var_name,
-         y = "Count") +
-    theme_minimal() +
-    theme(plot.title = element_text(hjust = 0.5))
-}
-
-# Apply the function to each numerical variable
-num_plots <- lapply(numerical_vars, function(var) {
-  plot_histogram(used_cars_data, var)
-})
-
-# Display plots in a grid
-grid.arrange(grobs = num_plots, ncol = 2)
-
+figure_no <- figure_no + 1
+ggplot(used_cars_data, aes(x = model_year)) +
+  geom_histogram(bins = 50, fill = "steelblue", alpha = 0.7) +
+  scale_x_continuous(labels = scales::comma) +
+  labs(title = "Distribution of Car's manufacturing year",
+       x = "Manufacturing year",
+       y = "Count",
+       caption = paste("Figure",figure_no,": Histogram showing the distribution of used car manufacturing year with 50 bins.")) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.caption = element_text(hjust = 0.5, face = "italic"))
 ```
 
 
@@ -427,4 +434,212 @@ The figure above shows distribution for the model year on the left and the milea
 
 The model year is skewed to the left, where most of the cars are newer.
 
+##### Mileage distribution
+```{r}
+figure_no <- figure_no + 1
+ggplot(used_cars_data, aes(x = mileage)) +
+  geom_histogram(bins = 50, fill = "steelblue", alpha = 0.7) +
+  scale_x_continuous(labels = scales::comma) +
+  labs(title = "Distribution of Car's mileage",
+       x = "Mileage",
+       y = "Count", 
+       caption = paste("Figure",figure_no,": Histogram showing the distribution of used car mileage with 50 bins.")) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.caption = element_text(hjust = 0.5, face = "italic"))
+```
+
+
 The Mileage is skewed to the right, where most of the cars were driven less.
+
+##### Brand type Distribution
+
+```{r}
+# Function to create bar plots for categorical variables
+plot_categorical_var <- function(data, var_name, figure_no, max_categories = 25) {
+  # Increment figure number
+  figure_no <- figure_no + 1
+  
+  # Get top N categories if there are too many
+  if(length(unique(data[[var_name]])) > max_categories) {
+    top_cats <- names(sort(table(data[[var_name]]), decreasing = TRUE)[1:max_categories])
+    plot_data <- data %>%
+      mutate(temp_var = ifelse(.data[[var_name]] %in% top_cats, 
+                              as.character(.data[[var_name]]), 
+                              "Other")) %>%
+      count(temp_var) %>%
+      rename(!!var_name := temp_var)
+    
+    # Create caption for plots with "Other" category
+    caption_text <- paste("Figure", figure_no, ": Showing top", max_categories, 
+                         "categories of ",var_name,". All remaining categories grouped as 'Other'.")
+  } else {
+    plot_data <- data %>% 
+      count(.data[[var_name]])
+    
+    # Create caption for plots with all categories shown
+    caption_text <- paste("Figure", figure_no, ": Distribution of all", 
+                         length(unique(data[[var_name]])), "categories.")
+  }
+  
+  # Create the plot using tidy evaluation
+  p <- ggplot(plot_data, aes(x = .data[[var_name]], y = n)) +
+    geom_bar(stat = "identity", fill = "seagreen", alpha = 0.7) +
+    labs(title = paste("Count of Cars by", var_name),
+         x = var_name,
+         y = "Count",
+         caption = caption_text) +
+    theme_minimal() +
+    theme(plot.title = element_text(hjust = 0.5),
+          axis.text.x = element_text(angle = 45, hjust = 1),
+          plot.caption = element_text(hjust = 0.5, face = "italic"))
+  
+  # Return both the plot and the updated figure number
+  return(list(plot = p, figure_no = figure_no))
+}
+```
+
+
+```{r}
+result <- plot_categorical_var(used_cars_data, "brand", figure_no)
+result$plot
+```
+
+Visually the distribution of brands is not uniform, which indicates unbalanced data regarding brand and may bias the regression.
+
+Brands has no invalid or missing value.
+
+
+##### Model distribution
+```{r}
+result <- plot_categorical_var(used_cars_data, "model", figure_no)
+result$plot
+```
+
+Visually the distribution of car models looks uniform, with count of other models being the highest.
+
+The models has no invalid value.
+
+##### Fuel type distribution
+```{r}
+result <- plot_categorical_var(used_cars_data, "fuel_type", figure_no)
+result$plot
+```
+
+Gasoline is the most popular fuel type, and there are two unexpected fuel type:
+1. Dash (-) : it is an error entry or data was unavailable, in total are 45 rows.
+2. Empty string: it is for electric cars, in total are 170 rows.
+3. "not supported": it is for electric cars, in total are 2 rows.
+
+For the electric cars, the fuel type is set to "Electric".
+```{r}
+used_cars_data$fuel_type[used_cars_data$fuel_type == ""] <- "electric"
+```
+
+
+For the rows with "Dash", it is observed that engine is also a "Dash", making it impossible to sanitize and will be left for now.
+
+
+```{r, echo = FALSE}
+fuel_counts <- table(used_cars_data$fuel_type)
+fuel_counts
+```
+
+```{r, echo = FALSE}
+unique_fuel_types <- unique(used_cars_data$fuel_type)
+quoted_values <- paste0("'", unique_fuel_types, "'")
+quoted_values
+```
+
+```{r, echo=FALSE}
+used_cars_data[used_cars_data$fuel_type == "",]
+```
+
+##### Engine type distribution
+```{r}
+result <- plot_categorical_var(used_cars_data, "engine", figure_no)
+result$plot
+```
+
+Visually the distribution of car engine looks uniform, with count of other engine types being the highest.
+
+The engine attribute has '-' which are missing values, on the same rows as missing values for fuel type.
+
+This attribute is very descriptive and does not have a clear standard like '3.0 Liter' and '3.0L' and might be hard to be used for the final model.
+
+```{r, echo=FALSE}
+used_cars_data[used_cars_data$engine == "–",]
+```
+
+
+##### Transmission type distribution
+```{r}
+result <- plot_categorical_var(used_cars_data, "transmission", figure_no)
+result$plot
+```
+
+Visually the distribution of car transmission are mostly A/T, which seems to be short of Automatic Transmission.
+
+The engine attribute has '-' which are missing values for 4 rows.
+
+This attribute is very descriptive and does not have a clear standard like '2-Speed A/T' and '2-Speed Automatic' and might be hard to be used for the final model.
+
+```{r, echo=FALSE}
+used_cars_data[used_cars_data$transmission == "–",]
+```
+
+##### Exterior color distribution
+```{r}
+result <- plot_categorical_var(used_cars_data, "ext_col", figure_no)
+result$plot
+```
+
+Visually the distribution of car exterior color have few colors that are ver common.
+
+The engine attribute has '-' which are missing values for 15 rows. This information would be easily obtained by inspecting the vehicle and updating the data but is not possible in this dataset.
+
+This attribute has typo like 'Blu', and is very descriptive and does not have a clear standard like 'Blue' and 'BLUE', or 'C / C' and might be hard to be used for the final model.
+
+```{r, echo=FALSE}
+used_cars_data[used_cars_data$ext_col == "–",]
+```
+
+
+##### Interior color distribution
+```{r}
+result <- plot_categorical_var(used_cars_data, "int_col", figure_no)
+result$plot
+```
+
+Visually the distribution of car interior color have few colors that are ver common.
+
+The engine attribute has '-' which are missing values for 133 rows. This information would be easily obtained by inspecting the vehicle and updating the data but is not possible in this dataset.
+
+This attribute has typo like 'Blk', and is very descriptive and does not have a clear standard like 'Black' and 'BLACK', or 'Sport' and might be hard to be used for the final model.
+
+```{r, echo=FALSE}
+used_cars_data[used_cars_data$int_col == "–",]
+```
+
+
+
+# CONCLUSION AND DISCUSSION
+## Approach
+*Overall, is the approach we took promising? Please elaborate. What different approach or variant of this approach is better?*
+
+## Future work
+*What should follow-up work be done next?*
+
+# 5	REFERENCES 
+*List all references (e.g., books, journal, conferences, reports, magazines) you are citing in this proposal. Format:*
+
+1.	Data set. **Author(s)**: Taeef Najib, **Title**: Used Car Price Prediction Dataset, **Venue**: Kaggle, **Pages**: N/A, **Month/Year**: May 2022, **Publisher**: Kaggle, **URL**: https://www.kaggle.com/datasets/taeefnajib/used-car-price-prediction-dataset/data
+2.	**Author(s)**: Sumeyra Muti , Kazım Yıldız, **Title**: Using Linear Regression For Used Car Price Prediction, **Venue**:International Journal of Computational and Experimental Science and Engineering (IJCESEN), **Pages**:137-141, **Month/Year**: 03/23, **Publisher**:Iğdır University, **URL**:https://doi.org/10.22399/ijcesen.1070505 . 
+3.	(Your text here) Author(s), Title, Venue, Pages, Month/Year, Publisher.
+4.	(Your text here) Author(s), Title, Venue, Pages, Month/Year, Publisher.
+
+
+
+
+# APPENDIX
+Optional part of the proposal. Include any support material you may have, e.g., figures, tables, samples of your data set(s). Make sure to cite any of the Appendix material in the main proposal text. 
