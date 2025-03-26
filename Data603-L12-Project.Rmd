@@ -348,9 +348,9 @@ names(used_cars_data)[names(used_cars_data) == "milage"] <- "mileage"
 used_cars_data$fuel_type[is.na(used_cars_data$fuel_type)] <- "electric"
 ```
 
-Categorical attributes are converted into type factor to avoid wrong interpratation by R
+Categorical attributes are converted into type factor to avoid wrong interpretation by R
 ```{r}
-used_cars_data$brand <- as.factor(used_cars_data$brand)
+# used_cars_data$brand <- as.factor(used_cars_data$brand)
 used_cars_data$model <- as.factor(used_cars_data$model)
 used_cars_data$fuel_type <- as.factor(used_cars_data$fuel_type)
 used_cars_data$engine <- as.factor(used_cars_data$engine)
@@ -386,7 +386,7 @@ print(missing_values[missing_values > 0])
 cat("\nNumber of duplicate rows:", sum(duplicated(used_cars_data)), "\n")
 ```
 
-#### Univariate Analysis
+#### Feature Analysis
 ##### Price distribution
 
 ```{r}
@@ -518,7 +518,36 @@ Visually the distribution of brands is not uniform, which indicates unbalanced d
 
 Brands has no invalid or missing value.
 
-Since every car has a brand and a model, therefore brand and model are highly correlated and will violate the multicollinearity assumption. Therefore brand will be removed since has less granularity than model.
+Since every car has a brand and a model, therefore brand and model are highly correlated and will violate the multicollinearity assumption. 
+
+Because luxury brands affects perception of value of a car, a new feature **luxury_brand** will be engineered from brand with following rules:
+
+1. If Acura, Alfa, Aston, Audi, Bentley, BMW, Bugatti, Ferrari, INFINITI, Jaguar, Lamborghini, Land, Lexus, Maserati, McLaren, Mercedes-Benz, Porsche, Rolls-Royce, Tesla, Volvo = 1
+2. All others = 0
+
+```{r}
+length(unique(used_cars_data$brand))
+sort(unique(used_cars_data$brand))
+```
+
+```{r}
+luxury_brands <- c("Acura", "Alfa", "Aston", "Audi", "Bentley", "BMW", "Bugatti",
+                   "Ferrari", "INFINITI", "Jaguar", "Lamborghini", "Land", "Lexus", "Maserati",
+                   "McLaren", "Mercedes-Benz", "Porsche", "Rolls-Royce", "Tesla", "Volvo")
+
+# Create the new feature
+used_cars_data$luxury_brand <- ifelse(used_cars_data$brand %in% luxury_brands, 1, 0)
+used_cars_data$luxury_brand <- as.factor(used_cars_data$luxury_brand)
+```
+
+
+
+```{r}
+result <- plot_categorical_var(used_cars_data, "luxury_brand", figure_no)
+result$plot
+```
+
+There is a balanced distribution between luxury and non luxury brand.
 
 
 ##### Model distribution
@@ -559,6 +588,40 @@ Visually the distribution of car engine looks uniform, with count of other engin
 The engine attribute has '-' which are missing values, on the same rows as missing values for fuel type.
 
 This attribute is very descriptive and does not have a clear standard like '3.0 Liter' and '3.0L' and might be hard to be used for the final model.
+
+A new feature is engineered called engine_size that extracts 
+
+```{r}
+# Use regexec to extract the decimal engine size (like 1.6) before the 'L'
+matches <- regexec("([0-9]+\\.[0-9]+)[ ]{0,1}L", used_cars_data$engine)
+
+# Extract the matched group (i.e., the number) or NA if no match
+used_cars_data$engine_size <- sapply(
+  regmatches(used_cars_data$engine, matches),
+  function(x) if (length(x) >= 2) x[2] else NA
+)
+used_cars_data$engine_size <- as.numeric(used_cars_data$engine_size)
+```
+
+It resulted in `r nrow(used_cars_data[is.na(used_cars_data$engine_size), ])` rows without engine size and has `r length(unique(used_cars_data$engine_size))` unique engine size.
+
+```{r}
+figure_no <- figure_no + 1
+ggplot(used_cars_data, aes(x = engine_size)) +
+  geom_histogram(bins = 50, fill = "steelblue", alpha = 0.7) +
+  scale_x_continuous(labels = scales::comma) +
+  labs(title = "Distribution of Car's engine size",
+       x = "Engine Size",
+       y = "Count", 
+       caption = paste("Figure",figure_no,": Histogram showing the distribution of used car engine size with 50 bins.")) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.caption = element_text(hjust = 0.5, face = "italic"))
+```
+
+
+Most of engine size are on the smaller side, which is most common in the market.
+
 
 
 ##### Transmission type distribution
@@ -622,118 +685,32 @@ Since a car only has clean title if has no accident, clean_title and accident ar
 
 
 ```{r}
-pairs(~price+model_year+mileage, data=used_cars_data, panel = panel.smooth)
+pairs(~price+model_year+mileage+engine_size, data=used_cars_data, panel = panel.smooth)
+title(main = "Pairs Plot of Used Cars Data", sub = "Price, Model Year, Mileage, Engine Size")
+
 ```
 
-```{r}
-# Example: Check how horsepower varies by model
-boxplot(mileage ~ brand, data = used_cars_data, las = 2,
-        main = "Horsepower by Model", ylab = "Horsepower", xlab = "Model", col = "orange")
-```
+The plot above shows no obvious higher degree between price and numerical independent variables.
 
-```{r}
-library(ggplot2)
-
-ggplot(used_cars_data, aes(x = brand, y = mileage)) +
-  geom_violin(fill = "lightblue") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(title = "Horsepower by Model", y = "Horsepower", x = "Model")
-```
-
-```{r}
-anova_model <- aov(mileage ~ brand, data = used_cars_data)
-summary(anova_model)
-```
-
+The plot also shows no linear correlation between the numerical independent variables.
 
 
 ```{r}
-library(car)  # More robust VIF calculation
-library(lmtest)  # For additional regression diagnostics
-library(olsrr)  # Additional regression diagnostics
-
-firstordermodel <- lm(price ~ model_year + mileage + brand + model + 
-                      fuel_type + engine + transmission + 
-                      ext_col + int_col + accident + clean_title, 
-                      data = used_cars_data)
-```
-
-
-```{r}
-options(max.print = 1000000000)
-writeLines(capture.output(alias(firstordermodel)), "alias_output.txt")
-```
-
-```{r}
-df <- used_cars_data
-# Calculate the frequency of each brand
-brand_freq <- table(df$model)
-
-# Sort by frequency and keep the top 3 brands, others will be "Other"
-top_brands <- names(sort(brand_freq, decreasing = TRUE)[1:10])
-df$used_cars_data <- ifelse(df$model %in% top_brands, df$model, 'Other')
-
-# Check the updated dataframe
-table(df$used_cars_data)
-```
-
-```{r}
-df <- used_cars_data
-# Create dummy variables for 'brand'
-df_dummies <- model.matrix(~ model - 1, data = df)
-
-# Perform PCA
-pca_result <- prcomp(df_dummies)
-summary(pca_result)
-
-# Extract the proportion of variance explained by each component
-explained_variance <- pca_result$sdev^2 / sum(pca_result$sdev^2)
-
-# Plot the cumulative explained variance
-cumulative_variance <- cumsum(explained_variance)
-
-# Plot the cumulative variance
-plot(cumulative_variance, type = "b", xlab = "Number of Components", ylab = "Cumulative Explained Variance", main = "Cumulative Explained Variance vs. Number of Components")
-
-# Programmatically select the number of components that explain 90% of the variance
-threshold <- 0.90
-n_components <- which(cumulative_variance >= threshold)[1]
-
-# Show the number of components selected
-cat("Number of components explaining", threshold * 100, "% of variance:", n_components, "\n")
-
-# Use only the selected number of components in the model
-selected_components <- pca_result$x[, 1:n_components]
-```
-
-```{r}
-str(used_cars_data)
-```
-
-
-
-```{r}
-# Convert categorical variables ('model' and 'ext_color') to dummy variables
-df_dummies_brand <- model.matrix(~ brand - 1, data = used_cars_data)  # Dummy variables for 'model'
-df_dummies_model <- model.matrix(~ model - 1, data = used_cars_data)  # Dummy variables for 'model'
-df_dummies_fuel_type <- model.matrix(~ fuel_type - 1, data = used_cars_data)  # Dummy variables for 'model'
-df_dummies_engine <- model.matrix(~ engine - 1, data = used_cars_data)  # Dummy variables for 'model'
-df_dummies_transmission <- model.matrix(~ transmission - 1, data = used_cars_data)  # Dummy variables for 'model'
-df_dummies_ext_color <- model.matrix(~ ext_col - 1, data = used_cars_data)  # Dummy variables for 'ext_color'
-df_dummies_int_color <- model.matrix(~ int_col - 1, data = used_cars_data)  # Dummy variables for 'ext_color'
-df_dummies_accident <- model.matrix(~ accident - 1, data = used_cars_data)  # Dummy variables for 'ext_color'
-df_dummies_clean_title <- model.matrix(~ clean_title - 1, data = used_cars_data)  # Dummy variables for 'ext_color'
+df_dummies_brand <- model.matrix(~ brand - 1, data = used_cars_data)
+df_dummies_luxury_brand <- model.matrix(~ luxury_brand - 1, data = used_cars_data)  
+df_dummies_model <- model.matrix(~ model - 1, data = used_cars_data)  
+df_dummies_fuel_type <- model.matrix(~ fuel_type - 1, data = used_cars_data)  
+df_dummies_engine <- model.matrix(~ engine - 1, data = used_cars_data)  
+df_dummies_transmission <- model.matrix(~ transmission - 1, data = used_cars_data)  
+df_dummies_ext_color <- model.matrix(~ ext_col - 1, data = used_cars_data)  
+df_dummies_int_color <- model.matrix(~ int_col - 1, data = used_cars_data)
+df_dummies_accident <- model.matrix(~ accident - 1, data = used_cars_data)
+df_dummies_clean_title <- model.matrix(~ clean_title - 1, data = used_cars_data)
 # Combine the dummy variables with the original numerical features (mileage and model_year)
 # df_full <- cbind(df_dummies_brand, df_dummies_model, df_dummies_fuel_type, df_dummies_engine, df_dummies_transmission, df_dummies_ext_color, df_dummies_int_color, df_dummies_accident, df_dummies_clean_title, used_cars_data[, c('mileage', 'model_year','price')])
-df_full <- cbind(df_dummies_model, df_dummies_fuel_type, df_dummies_engine, df_dummies_transmission, df_dummies_ext_color, df_dummies_int_color, df_dummies_accident,  used_cars_data[, c('mileage', 'model_year','price')])
+df_full <- cbind(df_dummies_luxury_brand, df_dummies_model, df_dummies_fuel_type, df_dummies_engine, df_dummies_transmission, df_dummies_ext_color, df_dummies_int_color, df_dummies_accident,  used_cars_data[, c('mileage', 'model_year','price')])
 ```
 
-```{r}
-# Check for any NA values in the data
-sum(is.na(df_full))  # Returns the number of NA values
-sum(is.nan(df_full)) # Returns the number of NaN values
-sum(is.infinite(df_full)) # Returns the number of infinite values
-```
 
 ```{r}
 # Perform PCA on the combined dummy variables and numerical features
@@ -757,127 +734,152 @@ df_pca <- data.frame(selected_components, price = used_cars_data$price)
 lm_pca <- lm(price ~ ., data = df_pca)
 
 # Summarize the model
-summary(lm_pca)
-```
-
-```{r}
-# Perform both-stepwise regression using p-values
-stepwise_model <- ols_step_both_p(lm_pca, penter = 0.05, premove = 0.10)
-
-# View the results of the stepwise selection
-summary(stepwise_model)
-```
-
-
-
-```{r}
-missing_fuel_type_rows <- which(is.na(used_cars_data$fuel_type))
-# View the rows with missing 'fuel_type' values
-used_cars_data[missing_fuel_type_rows, ]
-```
-
-```{r}
-nrow(df_dummies_brand)
-nrow(df_dummies_model)
-nrow(df_dummies_fuel_type)
-nrow(df_dummies_engine)
-nrow(df_dummies_transmission)
-nrow(df_dummies_ext_color)
-nrow(df_dummies_int_color)
-nrow(df_dummies_accident)
-nrow(df_dummies_clean_title)
-nrow(used_cars_data)
+lm_pca_summary <- summary(lm_pca)
 ```
 
 
 ```{r}
-firstordermodel <- lm(price ~ model_year + mileage + model + 
-                      fuel_type + engine + transmission + 
-                      ext_col + int_col + accident, 
-                      data = used_cars_data)
+library(car)
+options(max.print = 1000000000)
+writeLines(capture.output(vif(lm_pca)), "pca_vif.txt")
+```
+
+The output of pca_vif.txt shows that VIF for all predictors is 1, so there is no multi collinearity issue.
+
+
+The code below retrieves only statistically significant predictors after doing individual t-test, with $\alpha = 0.05$
+```{r}
+coef_table <- lm_pca_summary$coefficients
+pca_significant_predictors <- rownames(coef_table)[coef_table[, 4] < 0.05]
+```
+
+There are `r length(print(pca_significant_predictors))` significant predictors, listed below.
+```{r}
+pca_significant_predictors
+```
+
+A new dataframe with only significant predictors is derived from pca's dataframe
+```{r}
+# Create a new data frame with only the significant predictors
+# Assuming df contains the original dataset
+pca_sign_no_intercept <- setdiff(pca_significant_predictors, "(Intercept)")
+
+pca_significant_df <- df_pca[, pca_sign_no_intercept]
+
+# Add the dependent variable (response) to the new dataframe if needed
+pca_significant_df <- cbind(pca_significant_df, price=df_pca$price)  # Replace 'y' with your response variable name
 ```
 
 
+A new formula is created with only PCA's significant predictor and model performance is listed below.
 ```{r}
-vif(firstordermodel)
-```
+# Create the new formula using significant predictors (excluding intercept)
+pca_significant_formula <- as.formula(paste("price ~", paste(pca_significant_predictors[pca_significant_predictors != "(Intercept)"], collapse = " + ")))
 
-
-```{r}
-# Function to diagnose and handle aliased coefficients
-diagnose_multicollinearity <- function(model_data) {
-  # Convert categorical variables to factors if not already done
-  categorical_vars <- c('brand', 'model', 'fuel_type','engine', 'transmission', 'ext_col', 'int_col','accident','clean_title')
-  for (var in categorical_vars) {
-    model_data[[var]] <- as.factor(model_data[[var]])
-  }
-  
-  # Print unique levels of categorical variables
-  cat("Categorical Variable Levels:\n")
-  for (var in categorical_vars) {
-    cat(var, ":", length(levels(model_data[[var]])), "levels\n")
-  }
-  
-  # Identify potential source of aliased coefficients
-  # Full model with all predictors
-  full_formula <- as.formula(paste("price ~ ", 
-                                   paste(names(model_data)[names(model_data) != "price"], 
-                                         collapse = " + ")))
-  
-  # Fit the model
-  full_model <- lm(full_formula, data = model_data)
-  
-  # Check for aliased coefficients
-  aliases <- alias(full_model)
-  
-  if (!is.null(aliases$Complete)) {
-    cat("\nAliased Coefficients Detected:\n")
-    print(aliases$Complete)
-    
-    # Suggestions for resolving aliased coefficients
-    cat("\nPossible Causes and Solutions:\n")
-    cat("1. Redundant categorical variables\n")
-    cat("2. Perfect linear dependency in predictors\n")
-    cat("3. Insufficient variation in some predictors\n")
-  }
-  
-  # Alternative VIF calculation method
-  tryCatch({
-    # Remove problematic predictors or reduce levels
-    reduced_formula <- update(full_formula, . ~ . - model)
-    reduced_model <- lm(reduced_formula, data = model_data)
-    
-    vif_results <- vif(reduced_model)
-    cat("\nVariance Inflation Factors (after removal):\n")
-    print(vif_results)
-  }, error = function(e) {
-    cat("Error in VIF calculation:", e$message, "\n")
-  })
-  
-  return(NULL)
-}
-
-# Apply the diagnostic function
-diagnose_multicollinearity(used_cars_data)
-```
-
-
-```{r}
-library(mctest) #for VIF
-```
-
-```{r}
-imcdiag(firstordermodel, method="VIF")
+# Fit the new linear model using the significant predictors only
+lm_pca_significant <- lm(pca_significant_formula, data = pca_significant_df)
+lm_pca_significant_summary <- summary(lm_pca_significant)
+lm_pca_significant_summary
 ```
 
 
 
 ```{r}
-library(mctest) #for VIF
-firstordermodel=lm(price~model_year+mileage+brand+model+fuel_type+engine+transmission+ext_col+int_col+accident+clean_title, data=used_cars_data)
-imcdiag(firstordermodel, method="VIF")
+library(car)
+options(max.print = 1000000000)
+vif(lm_pca_significant)
 ```
 
+After performing individual t-test, found all significant addictive predictors.
+
+
+The interactive model doesn't perform well and all predictors are invalid.
+
+```{r}
+# Construct the full interaction model formula
+pca_interaction_formula <- as.formula(
+  paste("price ~ (", 
+        paste(pca_significant_predictors[pca_significant_predictors != "(Intercept)"], collapse = " + "), 
+        ")^2")
+)
+# Fit the new linear model using the significant predictors only
+lm_pca_significant_int <- lm(pca_interaction_formula, data = pca_significant_df)
+lm_pca_significant_int_summary <- summary(lm_pca_significant_int)
+```
+
+
+# Assumption check
+## Linearity Assumption
+
+The addictive model's $R^2_{adj} = `r lm_pca_significant_summary$adj.r.squared`$
+
+
+```{r}
+ggplot(lm_pca_significant, aes(x=.fitted, y=.resid)) +
+geom_point(colour = "purple") +
+geom_hline(yintercept = 0) +
+geom_smooth(colour = "green4")+
+ggtitle("Residual plot: Residual vs Fitted values")
+```
+
+There is no evident pattern, with occasional outlier.
+
+## Independence Assumption
+
+```{r}
+# Plot residuals vs. observation order
+plot(residuals(lm_pca_significant), type = "l", main = "Residuals vs. Observation Order",
+     ylab = "Residual", xlab = "Observation Index")
+abline(h = 0, col = "red")
+```
+
+
+The plot shows that follows a line but not a trend, indicating that the residuals are likely independent.
+
+## Equal Variance Assumption
+
+```{r}
+ggplot(lm_pca_significant, aes(x=.fitted, y=.resid)) +
+geom_point(colour = "purple") +
+geom_hline(yintercept = 0) +
+geom_smooth(colour = "green4")+
+ggtitle("Residual plot: Residual vs Fitted values")
+```
+
+The green line shows that is overfitting the outliers, but there is no clear trends.
+
+```{r}
+library(lmtest)
+bptest(lm_pca_significant)
+```
+
+Here we reject the null hypothesis (p-value < 0.05), so we conclude we do have heteroscedasticity. Maybe we can try a higher order model to get rid of this issue. Or log-transform the price
+
+## Normality Assumption
+
+```{r}
+# histogram
+ggplot(data=pca_significant_df, aes(lm_pca_significant$residuals)) +
+geom_histogram(breaks = seq(-1,1,by=0.1), col="green3", fill="green4") +
+labs(title="Histogram for residuals") +
+labs(x="residuals", y="Count")
+```
+
+
+```{r}
+ggplot(pca_significant_df, aes(sample=lm_pca_significant$residuals)) + 
+  stat_qq() + 
+  stat_qq_line()
+
+par(mfrow=c(1,2))
+```
+
+
+```{r}
+shapiro.test(residuals(lm_pca_significant))
+```
+
+Because p-value < alpha, we do reject null and fail to have normallity
 
 # CONCLUSION AND DISCUSSION
 ## Approach
