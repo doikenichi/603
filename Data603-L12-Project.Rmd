@@ -343,12 +343,22 @@ used_cars_data$milage <- as.integer(used_cars_data$milage)
 
 #renaming column
 names(used_cars_data)[names(used_cars_data) == "milage"] <- "mileage"
+
+# Replace missing 'fuel_type' values with "electric"
+used_cars_data$fuel_type[is.na(used_cars_data$fuel_type)] <- "electric"
 ```
 
 Categorical attributes are converted into type factor to avoid wrong interpratation by R
 ```{r}
-categorical_vars <- c("brand", "model", "fuel_type", "engine", "transmission", "ext_col", "int_col", "accident", "clean_title")
-used_cars_data[categorical_vars] <- lapply(used_cars_data[categorical_vars], as.factor)
+used_cars_data$brand <- as.factor(used_cars_data$brand)
+used_cars_data$model <- as.factor(used_cars_data$model)
+used_cars_data$fuel_type <- as.factor(used_cars_data$fuel_type)
+used_cars_data$engine <- as.factor(used_cars_data$engine)
+used_cars_data$transmission <- as.factor(used_cars_data$transmission)
+used_cars_data$ext_col <- as.factor(used_cars_data$ext_col)
+used_cars_data$int_col <- as.factor(used_cars_data$int_col)
+used_cars_data$accident <- as.factor(used_cars_data$accident)
+used_cars_data$clean_title <- as.factor(used_cars_data$clean_title)
 ```
 
 ### EDA
@@ -374,7 +384,6 @@ print(missing_values[missing_values > 0])
 ```{r}
 # Check for duplicates
 cat("\nNumber of duplicate rows:", sum(duplicated(used_cars_data)), "\n")
-
 ```
 
 #### Univariate Analysis
@@ -509,6 +518,8 @@ Visually the distribution of brands is not uniform, which indicates unbalanced d
 
 Brands has no invalid or missing value.
 
+Since every car has a brand and a model, therefore brand and model are highly correlated and will violate the multicollinearity assumption. Therefore brand will be removed since has less granularity than model.
+
 
 ##### Model distribution
 ```{r}
@@ -532,28 +543,10 @@ Gasoline is the most popular fuel type, and there are two unexpected fuel type:
 3. "not supported": it is for electric cars, in total are 2 rows.
 
 For the electric cars, the fuel type is set to "Electric".
-```{r}
-used_cars_data$fuel_type[used_cars_data$fuel_type == ""] <- "electric"
-```
 
 
 For the rows with "Dash", it is observed that engine is also a "Dash", making it impossible to sanitize and will be left for now.
 
-
-```{r, echo = FALSE}
-fuel_counts <- table(used_cars_data$fuel_type)
-fuel_counts
-```
-
-```{r, echo = FALSE}
-unique_fuel_types <- unique(used_cars_data$fuel_type)
-quoted_values <- paste0("'", unique_fuel_types, "'")
-quoted_values
-```
-
-```{r, echo=FALSE}
-used_cars_data[used_cars_data$fuel_type == "",]
-```
 
 ##### Engine type distribution
 ```{r}
@@ -566,10 +559,6 @@ Visually the distribution of car engine looks uniform, with count of other engin
 The engine attribute has '-' which are missing values, on the same rows as missing values for fuel type.
 
 This attribute is very descriptive and does not have a clear standard like '3.0 Liter' and '3.0L' and might be hard to be used for the final model.
-
-```{r, echo=FALSE}
-used_cars_data[used_cars_data$engine == "–",]
-```
 
 
 ##### Transmission type distribution
@@ -584,10 +573,6 @@ The engine attribute has '-' which are missing values for 4 rows.
 
 This attribute is very descriptive and does not have a clear standard like '2-Speed A/T' and '2-Speed Automatic' and might be hard to be used for the final model.
 
-```{r, echo=FALSE}
-used_cars_data[used_cars_data$transmission == "–",]
-```
-
 ##### Exterior color distribution
 ```{r}
 result <- plot_categorical_var(used_cars_data, "ext_col", figure_no)
@@ -599,11 +584,6 @@ Visually the distribution of car exterior color have few colors that are ver com
 The engine attribute has '-' which are missing values for 15 rows. This information would be easily obtained by inspecting the vehicle and updating the data but is not possible in this dataset.
 
 This attribute has typo like 'Blu', and is very descriptive and does not have a clear standard like 'Blue' and 'BLUE', or 'C / C' and might be hard to be used for the final model.
-
-```{r, echo=FALSE}
-used_cars_data[used_cars_data$ext_col == "–",]
-```
-
 
 ##### Interior color distribution
 ```{r}
@@ -617,10 +597,286 @@ The engine attribute has '-' which are missing values for 133 rows. This informa
 
 This attribute has typo like 'Blk', and is very descriptive and does not have a clear standard like 'Black' and 'BLACK', or 'Sport' and might be hard to be used for the final model.
 
-```{r, echo=FALSE}
-used_cars_data[used_cars_data$int_col == "–",]
+
+##### Accident history distribution
+```{r}
+result <- plot_categorical_var(used_cars_data, "accident", figure_no)
+result$plot
 ```
 
+Visually the distribution of car accident history have no accident reported.
+
+There are 133 missing rows with missing value. Since is not trivial to get a car's accident history, there is a chance that these rows will be dropped or the column will be dropped. There is high chance that this column is higly correlated with accident attribute.
+
+##### Clean title distribution
+```{r}
+result <- plot_categorical_var(used_cars_data, "clean_title", figure_no)
+result$plot
+```
+
+Visually the distribution of car's clean title have "Yes" as clean title reported.
+
+There are 596 missing rows with missing value. 
+
+Since a car only has clean title if has no accident, clean_title and accident are highly and will violated multicollinearity assumption. Since clean_title has more missing values than accident, this column will be dropped.
+
+
+```{r}
+pairs(~price+model_year+mileage, data=used_cars_data, panel = panel.smooth)
+```
+
+```{r}
+# Example: Check how horsepower varies by model
+boxplot(mileage ~ brand, data = used_cars_data, las = 2,
+        main = "Horsepower by Model", ylab = "Horsepower", xlab = "Model", col = "orange")
+```
+
+```{r}
+library(ggplot2)
+
+ggplot(used_cars_data, aes(x = brand, y = mileage)) +
+  geom_violin(fill = "lightblue") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Horsepower by Model", y = "Horsepower", x = "Model")
+```
+
+```{r}
+anova_model <- aov(mileage ~ brand, data = used_cars_data)
+summary(anova_model)
+```
+
+
+
+```{r}
+library(car)  # More robust VIF calculation
+library(lmtest)  # For additional regression diagnostics
+library(olsrr)  # Additional regression diagnostics
+
+firstordermodel <- lm(price ~ model_year + mileage + brand + model + 
+                      fuel_type + engine + transmission + 
+                      ext_col + int_col + accident + clean_title, 
+                      data = used_cars_data)
+```
+
+
+```{r}
+options(max.print = 1000000000)
+writeLines(capture.output(alias(firstordermodel)), "alias_output.txt")
+```
+
+```{r}
+df <- used_cars_data
+# Calculate the frequency of each brand
+brand_freq <- table(df$model)
+
+# Sort by frequency and keep the top 3 brands, others will be "Other"
+top_brands <- names(sort(brand_freq, decreasing = TRUE)[1:10])
+df$used_cars_data <- ifelse(df$model %in% top_brands, df$model, 'Other')
+
+# Check the updated dataframe
+table(df$used_cars_data)
+```
+
+```{r}
+df <- used_cars_data
+# Create dummy variables for 'brand'
+df_dummies <- model.matrix(~ model - 1, data = df)
+
+# Perform PCA
+pca_result <- prcomp(df_dummies)
+summary(pca_result)
+
+# Extract the proportion of variance explained by each component
+explained_variance <- pca_result$sdev^2 / sum(pca_result$sdev^2)
+
+# Plot the cumulative explained variance
+cumulative_variance <- cumsum(explained_variance)
+
+# Plot the cumulative variance
+plot(cumulative_variance, type = "b", xlab = "Number of Components", ylab = "Cumulative Explained Variance", main = "Cumulative Explained Variance vs. Number of Components")
+
+# Programmatically select the number of components that explain 90% of the variance
+threshold <- 0.90
+n_components <- which(cumulative_variance >= threshold)[1]
+
+# Show the number of components selected
+cat("Number of components explaining", threshold * 100, "% of variance:", n_components, "\n")
+
+# Use only the selected number of components in the model
+selected_components <- pca_result$x[, 1:n_components]
+```
+
+```{r}
+str(used_cars_data)
+```
+
+
+
+```{r}
+# Convert categorical variables ('model' and 'ext_color') to dummy variables
+df_dummies_brand <- model.matrix(~ brand - 1, data = used_cars_data)  # Dummy variables for 'model'
+df_dummies_model <- model.matrix(~ model - 1, data = used_cars_data)  # Dummy variables for 'model'
+df_dummies_fuel_type <- model.matrix(~ fuel_type - 1, data = used_cars_data)  # Dummy variables for 'model'
+df_dummies_engine <- model.matrix(~ engine - 1, data = used_cars_data)  # Dummy variables for 'model'
+df_dummies_transmission <- model.matrix(~ transmission - 1, data = used_cars_data)  # Dummy variables for 'model'
+df_dummies_ext_color <- model.matrix(~ ext_col - 1, data = used_cars_data)  # Dummy variables for 'ext_color'
+df_dummies_int_color <- model.matrix(~ int_col - 1, data = used_cars_data)  # Dummy variables for 'ext_color'
+df_dummies_accident <- model.matrix(~ accident - 1, data = used_cars_data)  # Dummy variables for 'ext_color'
+df_dummies_clean_title <- model.matrix(~ clean_title - 1, data = used_cars_data)  # Dummy variables for 'ext_color'
+# Combine the dummy variables with the original numerical features (mileage and model_year)
+# df_full <- cbind(df_dummies_brand, df_dummies_model, df_dummies_fuel_type, df_dummies_engine, df_dummies_transmission, df_dummies_ext_color, df_dummies_int_color, df_dummies_accident, df_dummies_clean_title, used_cars_data[, c('mileage', 'model_year','price')])
+df_full <- cbind(df_dummies_model, df_dummies_fuel_type, df_dummies_engine, df_dummies_transmission, df_dummies_ext_color, df_dummies_int_color, df_dummies_accident,  used_cars_data[, c('mileage', 'model_year','price')])
+```
+
+```{r}
+# Check for any NA values in the data
+sum(is.na(df_full))  # Returns the number of NA values
+sum(is.nan(df_full)) # Returns the number of NaN values
+sum(is.infinite(df_full)) # Returns the number of infinite values
+```
+
+```{r}
+# Perform PCA on the combined dummy variables and numerical features
+pca_result <- prcomp(df_full, center = TRUE, scale. = TRUE)
+
+# Calculate explained variance and determine number of components explaining 90% of variance
+explained_variance <- pca_result$sdev^2 / sum(pca_result$sdev^2)
+cumulative_variance <- cumsum(explained_variance)
+
+# Set the threshold for the variance to keep, e.g., 90%
+threshold <- 0.90
+n_components <- which(cumulative_variance >= threshold)[1]
+
+# Select the first n_components from the PCA result
+selected_components <- pca_result$x[, 1:n_components]
+
+# Combine the selected components with the target variable 'sales'
+df_pca <- data.frame(selected_components, price = used_cars_data$price)
+
+# Fit a linear regression model using the selected components
+lm_pca <- lm(price ~ ., data = df_pca)
+
+# Summarize the model
+summary(lm_pca)
+```
+
+```{r}
+# Perform both-stepwise regression using p-values
+stepwise_model <- ols_step_both_p(lm_pca, penter = 0.05, premove = 0.10)
+
+# View the results of the stepwise selection
+summary(stepwise_model)
+```
+
+
+
+```{r}
+missing_fuel_type_rows <- which(is.na(used_cars_data$fuel_type))
+# View the rows with missing 'fuel_type' values
+used_cars_data[missing_fuel_type_rows, ]
+```
+
+```{r}
+nrow(df_dummies_brand)
+nrow(df_dummies_model)
+nrow(df_dummies_fuel_type)
+nrow(df_dummies_engine)
+nrow(df_dummies_transmission)
+nrow(df_dummies_ext_color)
+nrow(df_dummies_int_color)
+nrow(df_dummies_accident)
+nrow(df_dummies_clean_title)
+nrow(used_cars_data)
+```
+
+
+```{r}
+firstordermodel <- lm(price ~ model_year + mileage + model + 
+                      fuel_type + engine + transmission + 
+                      ext_col + int_col + accident, 
+                      data = used_cars_data)
+```
+
+
+```{r}
+vif(firstordermodel)
+```
+
+
+```{r}
+# Function to diagnose and handle aliased coefficients
+diagnose_multicollinearity <- function(model_data) {
+  # Convert categorical variables to factors if not already done
+  categorical_vars <- c('brand', 'model', 'fuel_type','engine', 'transmission', 'ext_col', 'int_col','accident','clean_title')
+  for (var in categorical_vars) {
+    model_data[[var]] <- as.factor(model_data[[var]])
+  }
+  
+  # Print unique levels of categorical variables
+  cat("Categorical Variable Levels:\n")
+  for (var in categorical_vars) {
+    cat(var, ":", length(levels(model_data[[var]])), "levels\n")
+  }
+  
+  # Identify potential source of aliased coefficients
+  # Full model with all predictors
+  full_formula <- as.formula(paste("price ~ ", 
+                                   paste(names(model_data)[names(model_data) != "price"], 
+                                         collapse = " + ")))
+  
+  # Fit the model
+  full_model <- lm(full_formula, data = model_data)
+  
+  # Check for aliased coefficients
+  aliases <- alias(full_model)
+  
+  if (!is.null(aliases$Complete)) {
+    cat("\nAliased Coefficients Detected:\n")
+    print(aliases$Complete)
+    
+    # Suggestions for resolving aliased coefficients
+    cat("\nPossible Causes and Solutions:\n")
+    cat("1. Redundant categorical variables\n")
+    cat("2. Perfect linear dependency in predictors\n")
+    cat("3. Insufficient variation in some predictors\n")
+  }
+  
+  # Alternative VIF calculation method
+  tryCatch({
+    # Remove problematic predictors or reduce levels
+    reduced_formula <- update(full_formula, . ~ . - model)
+    reduced_model <- lm(reduced_formula, data = model_data)
+    
+    vif_results <- vif(reduced_model)
+    cat("\nVariance Inflation Factors (after removal):\n")
+    print(vif_results)
+  }, error = function(e) {
+    cat("Error in VIF calculation:", e$message, "\n")
+  })
+  
+  return(NULL)
+}
+
+# Apply the diagnostic function
+diagnose_multicollinearity(used_cars_data)
+```
+
+
+```{r}
+library(mctest) #for VIF
+```
+
+```{r}
+imcdiag(firstordermodel, method="VIF")
+```
+
+
+
+```{r}
+library(mctest) #for VIF
+firstordermodel=lm(price~model_year+mileage+brand+model+fuel_type+engine+transmission+ext_col+int_col+accident+clean_title, data=used_cars_data)
+imcdiag(firstordermodel, method="VIF")
+```
 
 
 # CONCLUSION AND DISCUSSION
