@@ -5,7 +5,6 @@ date: "2025-03-30"
 output: 
   bookdown::word_document2:
     toc: true
-    fig_caption: true
     number_sections: true
 editor_options: 
   markdown: 
@@ -294,6 +293,52 @@ The dataset appears designed primarily for developing machine learning models to
 
 
 
+```{r}
+# Function to create bar plots for categorical variables
+plot_categorical_var <- function(data, var_name, figure_no, max_categories = 25) {
+  # Increment figure number
+  figure_no <- figure_no + 1
+  
+  # Get top N categories if there are too many
+  if(length(unique(data[[var_name]])) > max_categories) {
+    top_cats <- names(sort(table(data[[var_name]]), decreasing = TRUE)[1:max_categories])
+    plot_data <- data %>%
+      mutate(temp_var = ifelse(.data[[var_name]] %in% top_cats, 
+                              as.character(.data[[var_name]]), 
+                              "Other")) %>%
+      count(temp_var) %>%
+      rename(!!var_name := temp_var)
+    
+    # Create caption for plots with "Other" category
+    # caption_text <- paste("Figure", figure_no, ": Showing top", max_categories, 
+    #                      "categories of ",var_name,". All remaining categories grouped as 'Other'.")
+  } else {
+    plot_data <- data %>% 
+      count(.data[[var_name]])
+    
+    # Create caption for plots with all categories shown
+    caption_text <- paste("Figure", figure_no, ": Distribution of all", 
+                         length(unique(data[[var_name]])), "categories.")
+  }
+  
+  # Create the plot using tidy evaluation
+  p <- ggplot(plot_data, aes(x = .data[[var_name]], y = n)) +
+    geom_bar(stat = "identity", fill = "seagreen", alpha = 0.7) +
+    labs(title = paste("Count of Cars by", var_name),
+         x = var_name,
+         y = "Count",
+        ) +
+    theme_minimal() +
+    theme(plot.title = element_text(hjust = 0.5),
+          axis.text.x = element_text(angle = 45, hjust = 1),
+          plot.caption = element_text(hjust = 0.5, face = "italic"))
+  
+  # Return both the plot and the updated figure number
+  return(list(plot = p, figure_no = figure_no))
+}
+```
+
+
 
 
 
@@ -439,13 +484,30 @@ ggplot(used_cars_data, aes(x = model_year)) +
 ```
 
 
+```{r}
+used_cars_data$car_age <- 2024 - used_cars_data$model_year
+```
+
+```{r}
+ggplot(used_cars_data, aes(x = car_age)) +
+  geom_histogram(bins = 50, fill = "steelblue", alpha = 0.7) +
+  scale_x_continuous(labels = scales::comma) +
+  labs(title = "Distribution of Car's manufacturing year",
+       x = "Manufacturing year",
+       y = "Count") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.caption = element_text(hjust = 0.5, face = "italic"))
+```
+
+
 The figure above shows distribution for the model year on the left and the mileage on the right.
 
 The model year is skewed to the left, where most of the cars are newer.
 
 ##### Mileage distribution
 ```{r}
-figure_no <- figure_no + 1
+figure_no <-0
 ggplot(used_cars_data, aes(x = mileage)) +
   geom_histogram(bins = 50, fill = "steelblue", alpha = 0.7) +
   scale_x_continuous(labels = scales::comma) +
@@ -458,56 +520,33 @@ ggplot(used_cars_data, aes(x = mileage)) +
         plot.caption = element_text(hjust = 0.5, face = "italic"))
 ```
 
+```{r}
+# Calculating expected mileage
+used_cars_data$expected_mileage <- used_cars_data$car_age * 13500
+
+# Defining bins and labels
+bins <- c(0, 0.25, 0.5, 0.75, 1, Inf)
+labels <- c('verylow', 'low', 'avg', 'high', 'above_expected')
+
+# Assigning mileage status using cut
+used_cars_data$mileage_status <- cut(
+  used_cars_data$mileage / used_cars_data$expected_mileage,
+  breaks = bins,
+  labels = labels,
+  include.lowest = TRUE
+)
+```
+
+```{r}
+result <- plot_categorical_var(used_cars_data, "mileage_status", figure_no)
+result$plot
+```
+
+
 
 The Mileage is skewed to the right, where most of the cars were driven less.
 
 ##### Brand type Distribution
-
-```{r}
-# Function to create bar plots for categorical variables
-plot_categorical_var <- function(data, var_name, figure_no, max_categories = 25) {
-  # Increment figure number
-  figure_no <- figure_no + 1
-  
-  # Get top N categories if there are too many
-  if(length(unique(data[[var_name]])) > max_categories) {
-    top_cats <- names(sort(table(data[[var_name]]), decreasing = TRUE)[1:max_categories])
-    plot_data <- data %>%
-      mutate(temp_var = ifelse(.data[[var_name]] %in% top_cats, 
-                              as.character(.data[[var_name]]), 
-                              "Other")) %>%
-      count(temp_var) %>%
-      rename(!!var_name := temp_var)
-    
-    # Create caption for plots with "Other" category
-    caption_text <- paste("Figure", figure_no, ": Showing top", max_categories, 
-                         "categories of ",var_name,". All remaining categories grouped as 'Other'.")
-  } else {
-    plot_data <- data %>% 
-      count(.data[[var_name]])
-    
-    # Create caption for plots with all categories shown
-    caption_text <- paste("Figure", figure_no, ": Distribution of all", 
-                         length(unique(data[[var_name]])), "categories.")
-  }
-  
-  # Create the plot using tidy evaluation
-  p <- ggplot(plot_data, aes(x = .data[[var_name]], y = n)) +
-    geom_bar(stat = "identity", fill = "seagreen", alpha = 0.7) +
-    labs(title = paste("Count of Cars by", var_name),
-         x = var_name,
-         y = "Count",
-         caption = caption_text) +
-    theme_minimal() +
-    theme(plot.title = element_text(hjust = 0.5),
-          axis.text.x = element_text(angle = 45, hjust = 1),
-          plot.caption = element_text(hjust = 0.5, face = "italic"))
-  
-  # Return both the plot and the updated figure number
-  return(list(plot = p, figure_no = figure_no))
-}
-```
-
 
 ```{r}
 result <- plot_categorical_var(used_cars_data, "brand", figure_no)
@@ -560,7 +599,38 @@ Visually the distribution of car models looks uniform, with count of other model
 
 The models has no invalid value.
 
+```{r}
+length(unique(used_cars_data$model))
+```
+
+
 ##### Fuel type distribution
+
+```{r}
+result <- plot_categorical_var(used_cars_data, "fuel_type", figure_no)
+result$plot
+```
+
+```{r}
+# Replace values in the fuel_type column
+used_cars_data$fuel_type <- recode(
+  used_cars_data$fuel_type,
+  'Hybrid' = 'Hybrid',
+  'Plug-In Hybrid' = 'Hybrid',
+  'E85 Flex Fuel' = 'Other',
+  'not supported' = 'Other',
+  '–' = 'Other',
+  'electric' = 'Electric'
+)
+# Replace empty strings in fuel_type with "Other"
+used_cars_data$fuel_type[used_cars_data$fuel_type == ""] <- "Other"
+```
+
+```{r}
+unique(used_cars_data$fuel_type)
+```
+
+
 ```{r}
 result <- plot_categorical_var(used_cars_data, "fuel_type", figure_no)
 result$plot
@@ -626,6 +696,7 @@ Most of engine size are on the smaller side, which is most common in the market.
 
 ##### Transmission type distribution
 ```{r}
+figure_no <- figure_no + 1
 result <- plot_categorical_var(used_cars_data, "transmission", figure_no)
 result$plot
 ```
@@ -636,11 +707,132 @@ The engine attribute has '-' which are missing values for 4 rows.
 
 This attribute is very descriptive and does not have a clear standard like '2-Speed A/T' and '2-Speed Automatic' and might be hard to be used for the final model.
 
+Based on transmission, a new feature is engineered with named *automatic_transmission* which contains 1 if transmission is automatic and 0 otherwise.
+
+```{r}
+# Assuming your data frame is named 'used_cars_data'
+used_cars_data$automatic_transmission <- ifelse(grepl("A/T", used_cars_data$transmission), 1, ifelse(grepl("Automatic", used_cars_data$transmission), 1, ifelse(grepl("CVT", used_cars_data$transmission), 1, ifelse(grepl("–", used_cars_data$transmission), 1, ifelse(grepl("Transmission w/Dual Shift Mode", used_cars_data$transmission), 1, ifelse(grepl("Auto", used_cars_data$transmission), 1, ifelse(grepl("Overdrive ", used_cars_data$transmission), 1, ifelse(grepl("AT", used_cars_data$transmission), 1, ifelse(grepl("6 Speed At", used_cars_data$transmission), 1, 0)))))))))
+
+used_cars_data$automatic_transmission <- as.factor(used_cars_data$automatic_transmission)
+```
+
+```{r}
+figure_no <- figure_no + 1
+result <- plot_categorical_var(used_cars_data, "automatic_transmission", figure_no)
+result$plot
+```
+
+There is massively more automatic transmission that manual transmission, as today's society.
+
 ##### Exterior color distribution
 ```{r}
+figure_no <- figure_no + 1
 result <- plot_categorical_var(used_cars_data, "ext_col", figure_no)
 result$plot
 ```
+
+```{r}
+categorize_color <- function(color_col, df) {
+  categorize <- function(color) {
+    color <- tolower(color) # Convert to lowercase
+    if (is.na(color)) {
+      return("Other")
+    } else if (grepl("black", color)) {
+      return("Black")
+    } else if (grepl("gray|grey", color)) {
+      return("Gray")
+    } else if (grepl("silver", color)) {
+      return("Silver")
+    } else if (grepl("white", color)) {
+      return("White")
+    } else if (grepl("blue", color)) {
+      return("Blue")
+    } else if (grepl("red", color)) {
+      return("Red")
+    } else {
+      return("Other")
+    }
+  }
+
+  # Apply categorize function to the specified column
+  df$external_color <- sapply(df[[color_col]], categorize)
+  return(df)
+}
+```
+
+```{r}
+categorize_color_int <- function(color_col, df) {
+  categorize <- function(color) {
+    if (is.na(color)) {
+      return("Other")
+    }
+    
+    color <- tolower(color) # Convert to lowercase
+    
+    if (grepl("black|charcoal|graphite|ebony", color)) {
+      return("Black")
+    } else if (grepl("beige|brown", color)) {
+      return("Beige")
+    } else if (grepl("gray", color)) {
+      return("Gray")
+    } else if (grepl("-", color)) {
+      return("Other_NA")
+    } else {
+      return("Other_Colored")
+    }
+  }
+  
+  # Apply the 'categorize' function to the column
+  df$internal_color <- sapply(df[[color_col]], categorize)
+  return(df)
+}
+```
+
+```{r}
+metallic_color <- function(color_col, df) {
+  categorize <- function(color) {
+    # Convert to lowercase and handle missing values
+    if (is.na(color)) {
+      return("Other")
+    }
+    color <- tolower(color)
+    
+    # Check for specific keywords
+    if (grepl("metallic|pearl|crystal", color)) {
+      return("Yes")
+    } else {
+      return("No")
+    }
+  }
+  
+  # Apply the categorize function to the column
+  df$metallic_color <- sapply(df[[color_col]], categorize)
+  return(df)
+}
+```
+
+```{r}
+used_cars_data <- categorize_color('ext_col',used_cars_data)
+used_cars_data<-metallic_color('ext_col',used_cars_data)
+```
+
+```{r}
+# Frequency table
+freq_table <- table(used_cars_data$external_color)
+
+# View frequencies and proportions
+freq_table
+prop_table <- prop.table(freq_table)
+prop_table
+
+# Identify rare categories (e.g., less than 5% of the total)
+rare_categories <- names(freq_table[freq_table < (0.05 * nrow(used_cars_data))])
+rare_categories
+```
+
+
+
+
 
 Visually the distribution of car exterior color have few colors that are ver common.
 
@@ -648,11 +840,24 @@ The engine attribute has '-' which are missing values for 15 rows. This informat
 
 This attribute has typo like 'Blu', and is very descriptive and does not have a clear standard like 'Blue' and 'BLUE', or 'C / C' and might be hard to be used for the final model.
 
+
 ##### Interior color distribution
 ```{r}
+figure_no <- figure_no + 1
 result <- plot_categorical_var(used_cars_data, "int_col", figure_no)
 result$plot
 ```
+
+```{r}
+used_cars_data<-categorize_color_int('int_col',used_cars_data)
+```
+
+```{r}
+figure_no <- figure_no + 1
+result <- plot_categorical_var(used_cars_data, "internal_color", figure_no)
+result$plot
+```
+
 
 Visually the distribution of car interior color have few colors that are ver common.
 
@@ -663,9 +868,29 @@ This attribute has typo like 'Blk', and is very descriptive and does not have a 
 
 ##### Accident history distribution
 ```{r}
+figure_no <- figure_no + 1
 result <- plot_categorical_var(used_cars_data, "accident", figure_no)
 result$plot
 ```
+
+```{r}
+# Create the 'accidents' column: Assign "No" if 'accident' is "None reported", otherwise "Yes"
+used_cars_data$accidents <- ifelse(
+  used_cars_data$accident == "None reported",
+  "No",
+  "Yes"
+)
+
+# Replace NA values in 'accidents' with "No"
+used_cars_data$accidents[is.na(used_cars_data$accidents)] <- "No"
+```
+
+```{r}
+figure_no <- figure_no + 1
+result <- plot_categorical_var(used_cars_data, "accidents", figure_no)
+result$plot
+```
+
 
 Visually the distribution of car accident history have no accident reported.
 
@@ -673,6 +898,7 @@ There are 133 missing rows with missing value. Since is not trivial to get a car
 
 ##### Clean title distribution
 ```{r}
+figure_no <- figure_no + 1
 result <- plot_categorical_var(used_cars_data, "clean_title", figure_no)
 result$plot
 ```
@@ -685,6 +911,7 @@ Since a car only has clean title if has no accident, clean_title and accident ar
 
 
 ```{r}
+figure_no <- figure_no + 1
 pairs(~price+model_year+mileage+engine_size, data=used_cars_data, panel = panel.smooth)
 title(main = "Pairs Plot of Used Cars Data", sub = "Price, Model Year, Mileage, Engine Size")
 
@@ -693,6 +920,12 @@ title(main = "Pairs Plot of Used Cars Data", sub = "Price, Model Year, Mileage, 
 The plot above shows no obvious higher degree between price and numerical independent variables.
 
 The plot also shows no linear correlation between the numerical independent variables.
+
+
+```{r}
+
+```
+
 
 
 ```{r}
@@ -706,9 +939,10 @@ df_dummies_ext_color <- model.matrix(~ ext_col - 1, data = used_cars_data)
 df_dummies_int_color <- model.matrix(~ int_col - 1, data = used_cars_data)
 df_dummies_accident <- model.matrix(~ accident - 1, data = used_cars_data)
 df_dummies_clean_title <- model.matrix(~ clean_title - 1, data = used_cars_data)
+df_dummies_automatic_transmission <- model.matrix(~ automatic_transmission - 1, data = used_cars_data)
 # Combine the dummy variables with the original numerical features (mileage and model_year)
 # df_full <- cbind(df_dummies_brand, df_dummies_model, df_dummies_fuel_type, df_dummies_engine, df_dummies_transmission, df_dummies_ext_color, df_dummies_int_color, df_dummies_accident, df_dummies_clean_title, used_cars_data[, c('mileage', 'model_year','price')])
-df_full <- cbind(df_dummies_luxury_brand, df_dummies_model, df_dummies_fuel_type, df_dummies_engine, df_dummies_transmission, df_dummies_ext_color, df_dummies_int_color, df_dummies_accident,  used_cars_data[, c('mileage', 'model_year','price')])
+df_full <- cbind(df_dummies_luxury_brand, df_dummies_model, df_dummies_fuel_type, df_dummies_engine, df_dummies_automatic_transmission, df_dummies_accident,  used_cars_data[, c('mileage', 'model_year','price')])
 ```
 
 
@@ -767,11 +1001,12 @@ pca_sign_no_intercept <- setdiff(pca_significant_predictors, "(Intercept)")
 pca_significant_df <- df_pca[, pca_sign_no_intercept]
 
 # Add the dependent variable (response) to the new dataframe if needed
-pca_significant_df <- cbind(pca_significant_df, price=df_pca$price)  # Replace 'y' with your response variable name
+pca_significant_df <- cbind(pca_significant_df, price=df_pca$price)  
 ```
 
 
-A new formula is created with only PCA's significant predictor and model performance is listed below.
+
+
 ```{r}
 # Create the new formula using significant predictors (excluding intercept)
 pca_significant_formula <- as.formula(paste("price ~", paste(pca_significant_predictors[pca_significant_predictors != "(Intercept)"], collapse = " + ")))
@@ -782,30 +1017,116 @@ lm_pca_significant_summary <- summary(lm_pca_significant)
 lm_pca_significant_summary
 ```
 
+```{r}
+stepmod=ols_step_both_p(lm_pca_significant,p_enter = 0.05, p_remove = 0.05, details=FALSE)
+stepmod_summary <- summary(stepmod$model)
+```
+
+After doing ols_step_both_p all predictors are significant.
+
+The best additive model is
+$$
+\begin{aligned}
+\widehat{price} = &`r round(stepmod_summary$coefficients[1],4)` `r round(stepmod_summary$coefficients[2],4)`X_{PC11} `r round(stepmod_summary$coefficients[3],4)`X_{PC12} `r round(stepmod_summary$coefficients[4],4)`X_{PC1}\\
+                  &`r round(stepmod_summary$coefficients[5],4)`X_{PC10} `r round(stepmod_summary$coefficients[6],4)`X_{PC8} `r round(stepmod_summary$coefficients[7],4)`X_{PC9} `r round(stepmod_summary$coefficients[8],4)`X_{PC3}\\
+                  &`r round(stepmod_summary$coefficients[9],4)`X_{PC2} `r round(stepmod_summary$coefficients[10],4)`X_{PC1044} `r round(stepmod_summary$coefficients[11],4)`X_{PC5} `r round(stepmod_summary$coefficients[12],4)`X_{PC7}\\
+                  &`r round(stepmod_summary$coefficients[13],4)`X_{PC1043} `r round(stepmod_summary$coefficients[14],4)`X_{PC13} `r round(stepmod_summary$coefficients[15],4)`X_{PC4} `r round(stepmod_summary$coefficients[16],4)`X_{PC1041}\\
+                  &`r round(stepmod_summary$coefficients[17],4)`X_{PC6} `r round(stepmod_summary$coefficients[18],4)`X_{PC782} `r round(stepmod_summary$coefficients[19],4)`X_{PC1042} `r round(stepmod_summary$coefficients[20],4)`X_{PC804}\\
+                  &`r round(stepmod_summary$coefficients[21],4)`X_{PC787} `r round(stepmod_summary$coefficients[22],4)`X_{PC864} `r round(stepmod_summary$coefficients[23],4)`X_{PC786}
+\end{aligned}
+$$
+
+```{r}
+# Extract coefficient names
+coef_names <- rownames(stepmod_summary$coefficients)
+
+# Remove intercept if present
+coef_names <- coef_names[coef_names != "(Intercept)"]
+
+# 2. Subset your existing data frame by these predictor names
+pca_additive_final_df <- pca_significant_df[, coef_names, drop = FALSE]
+pca_additive_final_df <- cbind(pca_additive_final_df, price=df_pca$price)  
+
+
+# Create formula string (assuming Y is your response variable)
+formula_string <- paste("price ~", paste(coef_names, collapse = " + "))
+
+
+# Convert to formula
+pca_additive_final <- as.formula(formula_string)
+pca_additive_final_lm <- lm(pca_additive_final, data=pca_additive_final_df)
+```
+
 
 
 ```{r}
 library(car)
 options(max.print = 1000000000)
-vif(lm_pca_significant)
+lm_pca_significant_vif <- vif(pca_additive_final_lm)
+lm_pca_significant_vif
 ```
 
-After performing individual t-test, found all significant addictive predictors.
+There is no multi collinearity among predictors
 
-
-The interactive model doesn't perform well and all predictors are invalid.
+### The interactive model
 
 ```{r}
-# Construct the full interaction model formula
-pca_interaction_formula <- as.formula(
-  paste("price ~ (", 
-        paste(pca_significant_predictors[pca_significant_predictors != "(Intercept)"], collapse = " + "), 
-        ")^2")
-)
-# Fit the new linear model using the significant predictors only
-lm_pca_significant_int <- lm(pca_interaction_formula, data = pca_significant_df)
-lm_pca_significant_int_summary <- summary(lm_pca_significant_int)
+find_significant_interactions <- function(coefficients) {
+  coef_matrix <- coefficients
+  # Convert to data frame for easier filtering
+    coef_df <- data.frame(
+      Term = rownames(coef_matrix),
+      Estimate = coef_matrix[, 1],
+      StdError = coef_matrix[, 2],
+      tValue = coef_matrix[, 3],
+      pValue = coef_matrix[, 4],
+      row.names = NULL
+    )
+    significant_interactions <- subset(coef_df, grepl(":", Term) & pValue < 0.05)
+    return(significant_interactions$Term)
+}
+
+
+best_interaction_formula <- function(additictive_predictors, df, target_var) {
+  full_int_formula <- as.formula(paste(target_var, " ~ (", paste(coef_names, collapse = " + "), ")^2"))
+  # cat ("current: ", deparse(full_int_formula), "\n")
+  full_int_lm <- lm(full_int_formula, data = df)
+  lm_summary <- summary(full_int_lm)
+  repeat {
+    significant_interactions_current <- find_significant_interactions(lm_summary$coefficients)
+    n_significant_interactions_current <- length(significant_interactions_current)
+    cat ("current: ", n_significant_interactions_current, "\n")
+    # cat("new: ", deparse(significant_interactions_current), "\n")
+    
+    # Replace ":" with "*" in each element
+    terms_modified <- gsub(":", "*", significant_interactions_current)
+    # Concatenate all modified terms with "+"
+    # interactions <- paste(terms_modified, collapse = " + ")
+    int_formula_new <- as.formula(paste(target_var, " ~", paste(additictive_predictors, collapse = " + "), " + ", paste(terms_modified,collapse= "+")))
+    # cat ("new: ", deparse(int_formula_new), "\n")
+    int_formula_new_lm <- lm(int_formula_new, data = df)
+    lm_summary <- summary(int_formula_new_lm)
+    significant_interactions_new <- find_significant_interactions(lm_summary$coefficients)
+    n_significant_interactions_new <- length(significant_interactions_new)
+    cat ("new: ", n_significant_interactions_new, "\n")
+    if (n_significant_interactions_new == n_significant_interactions_current) {
+      return(int_formula_new)
+    }
+  }
+}
+
+best_int_formula <- best_interaction_formula(coef_names, pca_additive_final_df, "price")
+best_int_lm <- lm(best_int_formula, data=pca_additive_final_df)
+best_int_lm_summary <- summary(best_int_lm)
 ```
+
+```{r}
+best_int_formula <- best_interaction_formula(coef_names, pca_additive_final_df, "price")
+best_int_lm <- lm(best_int_formula, data=pca_additive_final_df)
+best_int_lm_summary <- summary(best_int_lm)
+```
+
+
 
 
 # Assumption check
@@ -815,7 +1136,7 @@ The addictive model's $R^2_{adj} = `r lm_pca_significant_summary$adj.r.squared`$
 
 
 ```{r}
-ggplot(lm_pca_significant, aes(x=.fitted, y=.resid)) +
+ggplot(best_int_lm, aes(x=.fitted, y=.resid)) +
 geom_point(colour = "purple") +
 geom_hline(yintercept = 0) +
 geom_smooth(colour = "green4")+
@@ -828,7 +1149,7 @@ There is no evident pattern, with occasional outlier.
 
 ```{r}
 # Plot residuals vs. observation order
-plot(residuals(lm_pca_significant), type = "l", main = "Residuals vs. Observation Order",
+plot(residuals(best_int_lm), type = "l", main = "Residuals vs. Observation Order",
      ylab = "Residual", xlab = "Observation Index")
 abline(h = 0, col = "red")
 ```
@@ -839,7 +1160,7 @@ The plot shows that follows a line but not a trend, indicating that the residual
 ## Equal Variance Assumption
 
 ```{r}
-ggplot(lm_pca_significant, aes(x=.fitted, y=.resid)) +
+ggplot(best_int_lm, aes(x=.fitted, y=.resid)) +
 geom_point(colour = "purple") +
 geom_hline(yintercept = 0) +
 geom_smooth(colour = "green4")+
@@ -850,7 +1171,7 @@ The green line shows that is overfitting the outliers, but there is no clear tre
 
 ```{r}
 library(lmtest)
-bptest(lm_pca_significant)
+bptest(best_int_lm)
 ```
 
 Here we reject the null hypothesis (p-value < 0.05), so we conclude we do have heteroscedasticity. Maybe we can try a higher order model to get rid of this issue. Or log-transform the price
@@ -859,7 +1180,7 @@ Here we reject the null hypothesis (p-value < 0.05), so we conclude we do have h
 
 ```{r}
 # histogram
-ggplot(data=pca_significant_df, aes(lm_pca_significant$residuals)) +
+ggplot(data=pca_significant_df, aes(best_int_lm$residuals)) +
 geom_histogram(breaks = seq(-1,1,by=0.1), col="green3", fill="green4") +
 labs(title="Histogram for residuals") +
 labs(x="residuals", y="Count")
@@ -867,7 +1188,7 @@ labs(x="residuals", y="Count")
 
 
 ```{r}
-ggplot(pca_significant_df, aes(sample=lm_pca_significant$residuals)) + 
+ggplot(pca_significant_df, aes(sample=best_int_lm$residuals)) + 
   stat_qq() + 
   stat_qq_line()
 
@@ -876,10 +1197,242 @@ par(mfrow=c(1,2))
 
 
 ```{r}
-shapiro.test(residuals(lm_pca_significant))
+shapiro.test(residuals(best_int_lm))
 ```
 
 Because p-value < alpha, we do reject null and fail to have normallity
+
+# interaction 2
+
+```{r}
+library(MASS)
+bc=boxcox(lm_pca,lambda=seq(-1,1))
+bestlambda=bc$x[which(bc$y==max(bc$y))]
+```
+
+
+```{r}
+bestlambda
+```
+
+The best lambda is `r bestlambda`.
+
+```{r}
+coef_table <- lm_pca_summary$coefficients
+pca_predictors <- rownames(coef_table)
+# 2. Remove the intercept manually (optional)
+pca_predictors <- pca_predictors[pca_predictors != "(Intercept)"]
+length(pca_predictors)
+```
+
+```{r}
+df_pca$price_lambda <- (df_pca$price^bestlambda - 1)/bestlambda
+```
+
+
+```{r}
+options(expressions = 20000)
+
+pca_lambda_formula <- reformulate(termlabels = pca_predictors, response = "price_lambda")
+
+# pca_lambda_formula
+```
+
+
+```{r}
+memory.limit()  
+```
+
+
+```{r}
+
+# Fit the new linear model using the significant predictors only
+lm_pca_lambda <- lm(pca_lambda_formula, data = df_pca)
+lm_pca_lambda_summary <- summary(lm_pca_lambda)
+#lm_pca_significant_lambda_summary
+```
+
+```{r}
+coef_table <- lm_pca_lambda_summary$coefficients
+pca_lambda_significant_predictors <- rownames(coef_table)[coef_table[, 4] < 0.05]
+length(pca_lambda_significant_predictors)
+```
+Since range of price is [`r range(df_pca$price)[1]`, `r range(df_pca$price)[2]`], it is safe to use box-cox transformation.
+
+
+```{r}
+options(expressions = 10000)  # to handle huge amount of predictors
+pca_lambda_significant_formula <- as.formula(
+  paste("((price^", bestlambda, " - 1)/", bestlambda, ") ~",
+        paste(pca_lambda_significant_predictors[pca_lambda_significant_predictors != "(Intercept)"], collapse = " + "))
+)
+```
+
+A new dataframe with only significant predictors is derived from pca's dataframe
+```{r}
+# Create a new data frame with only the significant predictors
+# Assuming df contains the original dataset
+pca_sign_no_intercept <- setdiff(pca_lambda_significant_predictors, "(Intercept)")
+
+pca_significant_df <- df_pca[, pca_sign_no_intercept]
+
+# Add the dependent variable (response) to the new dataframe if needed
+pca_lambda_significant_df <- cbind(pca_significant_df, price=df_pca$price)  
+```
+
+```{r}
+lm_pca_lambda_significant <- lm(pca_lambda_significant_formula, data = pca_lambda_significant_df)
+lm_pca_lambda_significant_summary <- summary(lm_pca_lambda_significant)
+```
+
+
+
+```{r}
+coef_table <- lm_pca_lambda_significant_summary$coefficients
+recheck_significant_predictors <- rownames(coef_table)[coef_table[, 4] < 0.05]
+length(recheck_significant_predictors)
+```
+
+On previous interaction, there where `r length(pca_lambda_significant_predictors)` statistically significant predictors, and now there are `r length(recheck_significant_predictors)`, so model will be refined again.
+
+
+A new dataframe with only significant predictors is derived from pca's dataframe
+```{r}
+# Create a new data frame with only the significant predictors
+# Assuming df contains the original dataset
+pca_sign_no_intercept <- setdiff(recheck_significant_predictors, "(Intercept)")
+
+pca_significant_df <- pca_lambda_significant_df[, pca_sign_no_intercept]
+
+# Add the dependent variable (response) to the new dataframe if needed
+pca_lambda_significant_df <- cbind(pca_lambda_significant_df, price=pca_lambda_significant_df$price)  
+pca_lambda_significant_formula <- as.formula(
+  paste("((price^", bestlambda, " - 1)/", bestlambda, ") ~",
+        paste(recheck_significant_predictors[recheck_significant_predictors != "(Intercept)"], collapse = " + "))
+)
+lm_pca_lambda_significant <- lm(pca_lambda_significant_formula, data = pca_lambda_significant_df)
+lm_pca_lambda_significant_summary <- summary(lm_pca_lambda_significant)
+```
+
+```{r}
+coef_table <- lm_pca_lambda_significant_summary$coefficients
+recheck_significant_predictors <- rownames(coef_table)[coef_table[, 4] < 0.05]
+length(recheck_significant_predictors)
+```
+
+
+# Assumption check
+
+## multi collinearity
+
+```{r}
+library(car)
+options(max.print = 1000000000)
+lm_pca_lambda_significant_vif <- vif(lm_pca_lambda_significant)
+```
+
+```{r}
+vif_values <- as.data.frame(lm_pca_lambda_significant_vif)
+filtered_vif <- vif_values[vif_values$VIF >= 5, ]
+filtered_vif
+```
+
+
+## Linearity Assumption
+
+The addictive model's $R^2_{adj} = `r lm_pca_lambda_significant_summary$adj.r.squared`$
+
+
+```{r}
+ggplot(lm_pca_lambda_significant, aes(x=.fitted, y=.resid)) +
+geom_point(colour = "purple") +
+geom_hline(yintercept = 0) +
+geom_smooth(colour = "green4")+
+ggtitle("Residual plot: Residual vs Fitted values")
+```
+
+There is no evident pattern, with occasional outlier.
+
+## Independence Assumption
+
+```{r}
+# Plot residuals vs. observation order
+plot(residuals(lm_pca_lambda_significant), type = "l", main = "Residuals vs. Observation Order",
+     ylab = "Residual", xlab = "Observation Index")
+abline(h = 0, col = "red")
+```
+
+
+The plot shows that follows a line but not a trend, indicating that the residuals are likely independent.
+
+## Equal Variance Assumption
+
+```{r}
+ggplot(lm_pca_lambda_significant, aes(x=.fitted, y=.resid)) +
+geom_point(colour = "purple") +
+geom_hline(yintercept = 0) +
+geom_smooth(colour = "green4")+
+ggtitle("Residual plot: Residual vs Fitted values")
+```
+
+The green line shows that is overfitting the outliers, but there is no clear trends.
+
+```{r}
+library(lmtest)
+bptest(lm_pca_lambda_significant)
+```
+
+Here we fail to reject the null hypothesis (p-value < 0.05), so we conclude we do have homoscedasticity.
+
+## Normality Assumption
+
+```{r}
+# histogram
+ggplot(data=pca_lambda_significant_df, aes(lm_pca_lambda_significant$residuals)) +
+geom_histogram(breaks = seq(-1,1,by=0.1), col="green3", fill="green4") +
+labs(title="Histogram for residuals") +
+labs(x="residuals", y="Count")
+```
+
+
+```{r}
+ggplot(pca_lambda_significant_df, aes(sample=lm_pca_lambda_significant$residuals)) + 
+  stat_qq() + 
+  stat_qq_line()
+
+par(mfrow=c(1,2))
+```
+
+
+```{r}
+shapiro.test(residuals(lm_pca_lambda_significant))
+```
+
+Because p-value < alpha, we do reject null and fail to have normallity
+
+
+
+```{r}
+pca_lambda_formula <- as.formula(
+  paste("((price^",bestlambda,")-1/",bestlambda,") ~", 
+        paste(pca_significant_predictors[pca_significant_predictors != "(Intercept)"], collapse = " + "))
+)
+# pca_lambda_formula
+```
+
+```{r}
+
+# Fit the new linear model using the significant predictors only
+lm_pca_significant_lambda <- lm(pca_lambda_formula, data = pca_significant_df)
+lm_pca_significant_lambda_summary <- summary(lm_pca_significant_lambda)
+# lm_pca_significant_lambda_summary
+# bcmodel2=lm((((price^bestlambda)-1)/bestlambda)~stfees,data=University)
+# summary(bcmodel2)
+```
+
+
+
+
 
 # CONCLUSION AND DISCUSSION
 ## Approach
